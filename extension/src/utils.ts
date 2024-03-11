@@ -1,6 +1,8 @@
 import * as path from "path";
 import OpenAI from "openai";
 
+export const defaultIgnores = ["*-lock.json"];
+
 export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -1,4 +1,8 @@
 import * as vscode from "vscode";
+import { WorkspaceAssistant } from "./WorkspaceAssistant";
+import { Embedder } from "./Embedder";
+import { getAssistantId, getOpenAiApiKey } from "./config";
+import { OpenAIEmbeddings } from "langchain/embeddings/openai";
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
@@ -33,6 +37,29 @@ function getWebviewOptions(extensionUri: vscode.Uri): vscode.WebviewOptions {
   };
 }
 
+export type WorkspaceState =
+  | {
+      status: "NO_WORKSPACE";
+    }
+  | {
+      status: "MISSING_CONFIG";
+      path: string;
+    }
+  | {
+      status: "LOADING_EMBEDDINGS";
+      path: string;
+      embedder: Promise<Embedder>;
+    }
+  | {
+      status: "READY";
+      path: string;
+      assistant: WorkspaceAssistant;
+    }
+  | {
+      status: "ERROR";
+      error: string;
+    };
+
 /**
  * Manages cat coding webview panels
  */
@@ -41,13 +68,10 @@ class ChatPanel {
    * Track the currently panel. Only allow a single panel to exist at a time.
    */
   public static currentPanel: ChatPanel | undefined;
-
   public static readonly viewType = "webDevAssistant";
-
-  private readonly _panel: vscode.WebviewPanel;
-  private readonly _extensionUri: vscode.Uri;
-  private _disposables: vscode.Disposable[] = [];
-
+  public static revive(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
+    ChatPanel.currentPanel = new ChatPanel(panel, extensionUri);
+  }
   public static createOrShow(extensionUri: vscode.Uri) {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
@@ -70,14 +94,30 @@ class ChatPanel {
     ChatPanel.currentPanel = new ChatPanel(panel, extensionUri);
   }
 
-  public static revive(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
-    ChatPanel.currentPanel = new ChatPanel(panel, extensionUri);
+  private readonly _panel: vscode.WebviewPanel;
+  private readonly _extensionUri: vscode.Uri;
+  private _disposables: vscode.Disposable[] = [];
+  private _workspaceState: WorkspaceState = {
+    status: "NO_WORKSPACE",
+  };
+
+  get workspaceState() {
+    return this._workspaceState;
+  }
+
+  set workspaceState(workspace: WorkspaceState) {
+    this._workspaceState = workspace;
   }
 
   private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
     // this._panel.webview.postMessage({ command: 'refactor' });
     this._panel = panel;
     this._extensionUri = extensionUri;
+
+    this.workspaceState = this.updateWorkspace();
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      this.workspaceState = this.updateWorkspace();
+    });
 
     // Set the webview's initial html content
     this._update();
@@ -110,18 +150,93 @@ class ChatPanel {
     );
   }
 
-  public dispose() {
-    ChatPanel.currentPanel = undefined;
+  private updateWorkspace(): WorkspaceState {
+    const workspacePath = getWorkspacePath();
 
-    // Clean up our resources
-    this._panel.dispose();
-
-    while (this._disposables.length) {
-      const x = this._disposables.pop();
-      if (x) {
-        x.dispose();
-      }
+    // If already loaded, but changing to new workspace, we dispose
+    // of the assistant
+    if (
+      this.workspaceState &&
+      this.workspaceState.status === "READY" &&
+      this.workspaceState.path !== workspacePath
+    ) {
+      this.workspaceState.assistant.dispose();
     }
+
+    // We might change during the loading of the embedder, in this case
+    // we wait until it resolves and then dispose of it
+    if (
+      this.workspaceState &&
+      this.workspaceState.status === "LOADING_EMBEDDINGS" &&
+      this.workspaceState.path !== workspacePath
+    ) {
+      this.workspaceState.embedder.then((embedder) => embedder.dispose());
+    }
+
+    if (!workspacePath) {
+      return {
+        status: "NO_WORKSPACE",
+      };
+    }
+
+    const openAiApiKey = getOpenAiApiKey();
+    const assistantId = getAssistantId();
+
+    if (!openAiApiKey || !assistantId) {
+      return {
+        status: "MISSING_CONFIG",
+        path: workspacePath,
+      };
+    }
+
+    // If we somehow load the same workspace, we do nothing
+    if (
+      this.workspaceState &&
+      (this.workspaceState.status === "READY" ||
+        this.workspaceState.status === "LOADING_EMBEDDINGS") &&
+      this.workspaceState.path === workspacePath
+    ) {
+      return this.workspaceState;
+    }
+
+    const embeddings = new OpenAIEmbeddings({
+      openAIApiKey: openAiApiKey,
+      modelName: Embedder.MODEL_NAME,
+    });
+
+    const embedder = Embedder.load(workspacePath, embeddings);
+
+    const pendingState: WorkspaceState = {
+      status: "LOADING_EMBEDDINGS",
+      path: workspacePath,
+      embedder,
+    };
+
+    embedder
+      .then((embedder) => {
+        if (this.workspaceState === pendingState) {
+          this.workspaceState = {
+            status: "READY",
+            path: workspacePath,
+            assistant: new WorkspaceAssistant({
+              workspacePath,
+              openAiApiKey,
+              assistantId,
+              embedder,
+            }),
+          };
+        }
+      })
+      .catch((error) => {
+        if (this.workspaceState === pendingState) {
+          this.workspaceState = {
+            status: "ERROR",
+            error: String(error),
+          };
+        }
+      });
+
+    return pendingState;
   }
 
   private _update() {
@@ -192,6 +307,20 @@ class ChatPanel {
 			</body>
 			</html>`;
   }
+
+  public dispose() {
+    ChatPanel.currentPanel = undefined;
+
+    // Clean up our resources
+    this._panel.dispose();
+
+    while (this._disposables.length) {
+      const x = this._disposables.pop();
+      if (x) {
+        x.dispose();
+      }
+    }
+  }
 }
 
 function getNonce() {
@@ -202,4 +331,8 @@ function getNonce() {
     text += possible.charAt(Math.floor(Math.random() * possible.length));
   }
   return text;
+}
+
+function getWorkspacePath() {
+  return vscode.workspace.workspaceFolders?.[0].uri.path;
 }

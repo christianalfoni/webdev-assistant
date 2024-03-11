@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { activate as activateChatPanel } from "./ChatPanel";
 
 export function activate(context: vscode.ExtensionContext) {
+  console.log("WUUUUT THE FUDGE?");
   activateChatPanel(context);
 }
 

@@ -35,8 +35,9 @@
     ]
   },
   "scripts": {
+    "dev-client": "esbuild client/main.tsx --bundle --jsx=automatic --outfile=media/main.js --watch",
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && esbuild client/main.tsx --bundle --jsx=automatic --outfile=media/main.js",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
@@ -45,15 +46,24 @@
   "devDependencies": {
     "@types/mocha": "^10.0.6",
     "@types/node": "18.x",
+    "@types/react": "^18.2.64",
+    "@types/react-dom": "^18.2.21",
     "@types/vscode": "^1.87.0",
     "@typescript-eslint/eslint-plugin": "^7.0.2",
     "@typescript-eslint/parser": "^7.0.2",
     "@vscode/test-cli": "^0.0.6",
     "@vscode/test-electron": "^2.3.9",
+    "esbuild": "^0.20.1",
     "eslint": "^8.56.0",
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "openai": "^4.28.4"
+    "closevector-node": "^0.1.6",
+    "gitignore-globs": "^0.1.1",
+    "glob": "^10.3.10",
+    "langchain": "^0.1.26",
+    "openai": "^4.28.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   }
 }
