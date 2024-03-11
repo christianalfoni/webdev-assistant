@@ -3,6 +3,7 @@ import { WorkspaceAssistant } from "./WorkspaceAssistant";
 import { Embedder } from "./Embedder";
 import { getAssistantId, getOpenAiApiKey } from "./config";
 import { OpenAIEmbeddings } from "langchain/embeddings/openai";
+import { ToolCallEvent, ToolCallType } from "./AssistantTools";
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
@@ -37,6 +38,32 @@ function getWebviewOptions(extensionUri: vscode.Uri): vscode.WebviewOptions {
   };
 }
 
+type AssistantAction = ToolCallEvent &
+  (
+    | {
+        status: "pending";
+      }
+    | {
+        status: "resolved";
+        result: string;
+      }
+    | {
+        status: "rejected";
+        error: string;
+      }
+  );
+
+export type ChatMessage =
+  | {
+      role: "assistant";
+      text: string;
+      actions: AssistantAction[];
+    }
+  | {
+      role: "user";
+      text: string;
+    };
+
 export type WorkspaceState =
   | {
       status: "NO_WORKSPACE";
@@ -54,6 +81,7 @@ export type WorkspaceState =
       status: "READY";
       path: string;
       assistant: WorkspaceAssistant;
+      messages: ChatMessage[];
     }
   | {
       status: "ERROR";
@@ -224,6 +252,7 @@ class ChatPanel {
               assistantId,
               embedder,
             }),
+            messages: [],
           };
         }
       })
