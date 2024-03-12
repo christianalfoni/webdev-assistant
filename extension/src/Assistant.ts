@@ -8,7 +8,7 @@ import { Embedder } from "./Embedder";
 
 type RunStatus = OpenAI.Beta.Threads.Run["status"];
 
-export class WorkspaceAssistant implements Disposable {
+export class Assistant implements Disposable {
   private onRunStatusUpdateEmitter = new EventEmitter<RunStatus>();
   onRunStatusUpdate = this.onRunStatusUpdateEmitter.event;
   private onMessageEmitter = new EventEmitter<string>();

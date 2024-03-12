@@ -1,5 +1,6 @@
-import { ToolCallType } from "../src/AssistantTools";
-import { ChatMessage } from "../src/types";
+import type { ChatMessage } from "../src/types";
+// @ts-ignore
+import Markdown from "react-markdown";
 
 export function ChatMessage({ message }: { message: ChatMessage }) {
   return (
@@ -15,49 +16,51 @@ export function ChatMessage({ message }: { message: ChatMessage }) {
         />
       </div>
       <div className="chat-message-text">
-        {message.role === "assistant"
-          ? message.actions.map((action) => {
+        {message.role === "assistant" && message.actions.length ? (
+          <ul>
+            {message.actions.map((action) => {
               let label: string;
 
               switch (action.type) {
-                case ToolCallType.WRITE_FILE: {
+                case "write_file": {
                   label = "Writing file: " + action.path;
                   break;
                 }
-                case ToolCallType.DELETE_FILE: {
+                case "delete_file": {
                   label = "Deleting file: " + action.path;
                   break;
                 }
-                case ToolCallType.READ_DIRECTORY: {
+                case "read_directory": {
                   label = "Reading directory: " + action.path;
                   break;
                 }
-                case ToolCallType.READ_FILE: {
+                case "read_file": {
                   label = "Reading file: " + action.path;
                   break;
                 }
-                case ToolCallType.RUN_TERMINAL_COMMAND: {
+                case "run_terminal_command": {
                   label = "Running terminal command: " + action.command;
                   break;
                 }
-                case ToolCallType.SEARCH_CODE_EMBEDDINGS: {
+                case "search_code_embeddings": {
                   label = "Searching CODE embeddings: " + action.query;
                   break;
                 }
-                case ToolCallType.SEARCH_DOC_EMBEDDINGS: {
+                case "search_doc_embeddings": {
                   label = "Searching DOC embeddings: " + action.query;
                   break;
                 }
-                case ToolCallType.SEARCH_FILE_PATHS: {
+                case "search_file_paths": {
                   label = "Searching file paths: " + action.path;
                   break;
                 }
               }
 
-              return <div>### {label}</div>;
-            })
-          : null}
-        {message.text}
+              return <li>{label}</li>;
+            })}
+          </ul>
+        ) : null}
+        {message.text ? <Markdown>{message.text}</Markdown> : "Thinking..."}
       </div>
     </div>
   );

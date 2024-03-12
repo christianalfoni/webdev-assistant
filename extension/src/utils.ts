@@ -3,7 +3,7 @@ import OpenAI from "openai";
 // @ts-ignore
 import parseGitignore from "gitignore-globs";
 
-export const defaultIgnores = ["*.lock", "node_modules/**"];
+export const defaultIgnores = ["*.lock", "node_modules/**", ".embeddings/**"];
 
 export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -12,7 +12,7 @@ export function sleep(ms: number) {
 export function createMessageOutput(
   message: OpenAI.Beta.Threads.ThreadMessage
 ) {
-  return `${message.role}: ${message.content
+  return `${message.content
     .map((content) =>
       content.type === "text" ? content.text.value : "Image Not Available"
     )

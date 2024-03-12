@@ -1,6 +1,6 @@
 import { ToolCallEvent } from "./AssistantTools";
 import { Embedder } from "./Embedder";
-import { WorkspaceAssistant } from "./WorkspaceAssistant";
+import { Assistant } from "./Assistant";
 
 export type ChatPanelState =
   | {
@@ -18,7 +18,7 @@ export type ChatPanelState =
   | {
       status: "READY";
       path: string;
-      assistant: WorkspaceAssistant;
+      assistant: Assistant;
     }
   | {
       status: "ERROR";

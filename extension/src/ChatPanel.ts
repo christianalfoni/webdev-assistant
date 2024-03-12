@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { WorkspaceAssistant } from "./WorkspaceAssistant";
+import { Assistant } from "./Assistant";
 import { Embedder } from "./Embedder";
 import { getAssistantId, getOpenAiApiKey } from "./config";
 import { OpenAIEmbeddings } from "@langchain/openai";
@@ -196,6 +196,11 @@ class ChatPanel {
               role: "user",
               text: message.text,
             },
+            {
+              role: "assistant",
+              text: "",
+              actions: [],
+            },
           ],
         }));
         this.assistant.addMessage(message.text);
@@ -212,17 +217,27 @@ class ChatPanel {
   }
 
   private handleAssistantMessage(message: string) {
-    this.updateClientReadyState((current) => ({
-      ...current,
-      messages: [
-        ...current.messages,
-        {
-          role: "assistant",
-          text: message,
-          actions: [],
-        },
-      ],
-    }));
+    this.updateClientReadyState((current) => {
+      const lastAssistantMessage = current.messages
+        .filter((message) => message.role === "assistant")
+        .pop();
+
+      // This should never happen
+      if (!lastAssistantMessage || lastAssistantMessage.role !== "assistant") {
+        return current;
+      }
+
+      return {
+        ...current,
+        messages: [
+          ...current.messages.slice(0, current.messages.length - 1),
+          {
+            ...lastAssistantMessage,
+            text: message,
+          },
+        ],
+      };
+    });
   }
 
   private handleAssistantRunUpdate(run: OpenAI.Beta.Threads.RunStatus) {
@@ -345,7 +360,7 @@ class ChatPanel {
     embedder
       .then((embedder) => {
         if (this.state === pendingState) {
-          const assistant = new WorkspaceAssistant({
+          const assistant = new Assistant({
             workspacePath,
             openAiApiKey,
             assistantId,

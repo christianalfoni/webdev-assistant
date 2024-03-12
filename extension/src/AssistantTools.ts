@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { EventEmitter } from "vscode";
+import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as util from "util";
 import * as cp from "child_process";
@@ -11,49 +12,40 @@ import { glob } from "glob";
 
 const exec = util.promisify(cp.exec);
 
-export enum ToolCallType {
-  SEARCH_CODE_EMBEDDINGS = "search_code_embeddings",
-  SEARCH_DOC_EMBEDDINGS = "search_doc_embeddings",
-  READ_FILE = "read_file",
-  WRITE_FILE = "write_file",
-  READ_DIRECTORY = "read_directory",
-  DELETE_FILE = "delete_file",
-  RUN_TERMINAL_COMMAND = "run_terminal_command",
-  SEARCH_FILE_PATHS = "search_file_paths",
-}
+export type ToolCallEventType = ToolCallEvent["type"];
 
 export type ToolCallEvent =
   | {
-      type: ToolCallType.SEARCH_CODE_EMBEDDINGS;
+      type: "search_code_embeddings";
       query: string;
     }
   | {
-      type: ToolCallType.SEARCH_DOC_EMBEDDINGS;
+      type: "search_doc_embeddings";
       query: string;
     }
   | {
-      type: ToolCallType.READ_FILE;
+      type: "read_file";
       path: string;
     }
   | {
-      type: ToolCallType.WRITE_FILE;
+      type: "write_file";
       path: string;
       content: string;
     }
   | {
-      type: ToolCallType.READ_DIRECTORY;
+      type: "read_directory";
       path: string;
     }
   | {
-      type: ToolCallType.DELETE_FILE;
+      type: "delete_file";
       path: string;
     }
   | {
-      type: ToolCallType.RUN_TERMINAL_COMMAND;
+      type: "run_terminal_command";
       command: string;
     }
   | {
-      type: ToolCallType.SEARCH_FILE_PATHS;
+      type: "search_file_paths";
       path: string;
     };
 
@@ -78,22 +70,26 @@ export class AssistantTools {
 
         let output;
 
+        const isToolCall = <T extends ToolCallEventType>(type: T) => {
+          return toolCall.function.name === type;
+        };
+
         try {
-          if (toolCall.function.name === ToolCallType.SEARCH_CODE_EMBEDDINGS) {
+          if (isToolCall("search_code_embeddings")) {
             output = await this.searchCodeEmbeddings(args.query);
-          } else if (toolCall.function.name === "search_doc_embeddings") {
+          } else if (isToolCall("search_doc_embeddings")) {
             output = await this.searchDocEmbeddings(args.query);
-          } else if (toolCall.function.name === "read_file") {
+          } else if (isToolCall("read_file")) {
             output = await this.readFile(args.path);
-          } else if (toolCall.function.name === "write_file") {
+          } else if (isToolCall("write_file")) {
             output = await this.writeFile(args.path, args.content);
-          } else if (toolCall.function.name === "read_directory") {
+          } else if (isToolCall("read_directory")) {
             output = await this.readDirectory(args.path);
-          } else if (toolCall.function.name === "delete_file") {
+          } else if (isToolCall("delete_file")) {
             output = await this.deleteFile(args.path);
-          } else if (toolCall.function.name === "run_terminal_command") {
+          } else if (isToolCall("run_terminal_command")) {
             output = await this.runTerminalCommand(args.command);
-          } else if (toolCall.function.name === "search_file_paths") {
+          } else if (isToolCall("search_file_paths")) {
             output = await this.searchFilePaths(args.path);
           } else {
             throw new Error("Not implemented " + toolCall.function.name);
@@ -111,7 +107,7 @@ export class AssistantTools {
   }
   private searchCodeEmbeddings(query: string) {
     this.onToolCallEventEmitter.fire({
-      type: ToolCallType.SEARCH_CODE_EMBEDDINGS,
+      type: "search_code_embeddings",
       query,
     });
 
@@ -119,7 +115,7 @@ export class AssistantTools {
   }
   private searchDocEmbeddings(query: string) {
     this.onToolCallEventEmitter.fire({
-      type: ToolCallType.SEARCH_DOC_EMBEDDINGS,
+      type: "search_doc_embeddings",
       query,
     });
 
@@ -129,7 +125,7 @@ export class AssistantTools {
     const normalizedPath = normalizePath(this.workspacePath, path);
 
     this.onToolCallEventEmitter.fire({
-      type: ToolCallType.READ_FILE,
+      type: "read_file",
       path: normalizedPath.substring(this.workspacePath.length),
     });
 
@@ -141,7 +137,7 @@ export class AssistantTools {
     const normalizedPath = normalizePath(this.workspacePath, path);
 
     this.onToolCallEventEmitter.fire({
-      type: ToolCallType.WRITE_FILE,
+      type: "write_file",
       path: normalizedPath.substring(this.workspacePath.length),
       content,
     });
@@ -154,7 +150,7 @@ export class AssistantTools {
     const normalizedPath = normalizePath(this.workspacePath, path);
 
     this.onToolCallEventEmitter.fire({
-      type: ToolCallType.READ_DIRECTORY,
+      type: "read_directory",
       path: normalizedPath.substring(this.workspacePath.length),
     });
 
@@ -164,7 +160,7 @@ export class AssistantTools {
     const normalizedPath = normalizePath(this.workspacePath, path);
 
     this.onToolCallEventEmitter.fire({
-      type: ToolCallType.DELETE_FILE,
+      type: "delete_file",
       path: normalizedPath.substring(this.workspacePath.length),
     });
 
@@ -174,7 +170,7 @@ export class AssistantTools {
   }
   private async runTerminalCommand(command: string) {
     this.onToolCallEventEmitter.fire({
-      type: ToolCallType.RUN_TERMINAL_COMMAND,
+      type: "run_terminal_command",
       command,
     });
 
@@ -184,6 +180,11 @@ export class AssistantTools {
   }
 
   private async searchFilePaths(path: string) {
+    this.onToolCallEventEmitter.fire({
+      type: "search_file_paths",
+      path,
+    });
+
     const gitignoreGlobs = getGitIgnoreGlobs(this.workspacePath);
     const files = await glob("**/*.*", {
       ignore: defaultIgnores.concat(gitignoreGlobs),
