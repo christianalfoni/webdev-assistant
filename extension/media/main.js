@@ -1085,7 +1085,7 @@
             }
             return dispatcher.useContext(Context);
           }
-          function useState(initialState) {
+          function useState3(initialState) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useState(initialState);
           }
@@ -1097,7 +1097,7 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useRef(initialValue);
           }
-          function useEffect(create, deps) {
+          function useEffect2(create, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useEffect(create, deps);
           }
@@ -1879,7 +1879,7 @@
           exports.useContext = useContext;
           exports.useDebugValue = useDebugValue;
           exports.useDeferredValue = useDeferredValue;
-          exports.useEffect = useEffect;
+          exports.useEffect = useEffect2;
           exports.useId = useId;
           exports.useImperativeHandle = useImperativeHandle;
           exports.useInsertionEffect = useInsertionEffect;
@@ -1887,7 +1887,7 @@
           exports.useMemo = useMemo;
           exports.useReducer = useReducer;
           exports.useRef = useRef;
-          exports.useState = useState;
+          exports.useState = useState3;
           exports.useSyncExternalStore = useSyncExternalStore;
           exports.useTransition = useTransition;
           exports.version = ReactVersion;
@@ -24376,11 +24376,11 @@
               return jsxWithValidation(type, props, key, false);
             }
           }
-          var jsx2 = jsxWithValidationDynamic;
-          var jsxs = jsxWithValidationStatic;
+          var jsx5 = jsxWithValidationDynamic;
+          var jsxs4 = jsxWithValidationStatic;
           exports.Fragment = REACT_FRAGMENT_TYPE;
-          exports.jsx = jsx2;
-          exports.jsxs = jsxs;
+          exports.jsx = jsx5;
+          exports.jsxs = jsxs4;
         })();
       }
     }
@@ -24400,12 +24400,123 @@
 
   // client/main.tsx
   var import_client = __toESM(require_client());
+
+  // client/ChatPanel.tsx
+  var import_react2 = __toESM(require_react());
+
+  // client/NewChatMessage.tsx
+  var import_react = __toESM(require_react());
   var import_jsx_runtime = __toESM(require_jsx_runtime());
-  function HelloWorld() {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", { children: "Hello world!" });
+  function NewChatMessage({ onSendMessage }) {
+    const [text, setText] = (0, import_react.useState)("");
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "chat-message-wrapper", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "chat-message-avatar", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        "img",
+        {
+          alt: "avatar",
+          src: "https://avatars.githubusercontent.com/u/3956929?v=4"
+        }
+      ) }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        "textarea",
+        {
+          placeholder: "Please ask something...",
+          className: "new-chat-message",
+          value: text,
+          onChange: (event) => setText(event.target.value),
+          onKeyDown: (event) => {
+            if (event.metaKey && event.key === "Enter") {
+              onSendMessage(text);
+              setText("");
+            }
+          }
+        }
+      )
+    ] });
   }
+
+  // client/ChatMessage.tsx
+  var import_jsx_runtime2 = __toESM(require_jsx_runtime());
+  function ChatMessage({ message }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "chat-message-wrapper", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "chat-message-avatar", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+        "img",
+        {
+          alt: "avatar",
+          src: message.role === "assistant" ? "https://avatars.githubusercontent.com/u/4183342?s=96&v=4" : "https://avatars.githubusercontent.com/u/3956929?v=4"
+        }
+      ) }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "chat-message-text", children: [
+        message.role === "assistant" ? message.actions.map(() => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", {})) : null,
+        message.text
+      ] })
+    ] });
+  }
+
+  // client/ChatPanel.tsx
+  var import_jsx_runtime3 = __toESM(require_jsx_runtime());
+  var vscode = acquireVsCodeApi();
+  function postMessage(message) {
+    vscode.postMessage(message);
+  }
+  function ChatPanel() {
+    const [state, setState] = (0, import_react2.useState)();
+    (0, import_react2.useEffect)(() => {
+      const onMessage = (event) => {
+        const message = event.data;
+        switch (message.type) {
+          case "state_update":
+            setState(message.state);
+            break;
+        }
+      };
+      window.addEventListener("message", onMessage);
+      postMessage({
+        type: "state_request"
+      });
+      return () => {
+        window.removeEventListener("message", onMessage);
+      };
+    }, []);
+    if (!state) {
+      return null;
+    }
+    if (state.status === "NO_WORKSPACE") {
+      return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("h1", { children: "No workspace" });
+    }
+    if (state.status === "MISSING_CONFIG") {
+      return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("h1", { children: "Missing config!" });
+    }
+    if (state.status === "LOADING_EMBEDDINGS") {
+      return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("h1", { children: "Loading embeddings!" });
+    }
+    if (state.status === "ERROR") {
+      return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("h1", { children: [
+        "Error! $",
+        state.error
+      ] });
+    }
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "chat-messages", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "chat-messages-pusher" }),
+      state.messages.map((message, index) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(ChatMessage, { message }, index)),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+        NewChatMessage,
+        {
+          onSendMessage: (text) => {
+            postMessage({
+              type: "assistant_request",
+              text
+            });
+          }
+        }
+      )
+    ] });
+  }
+
+  // client/main.tsx
+  var import_jsx_runtime4 = __toESM(require_jsx_runtime());
   var root = (0, import_client.createRoot)(document.getElementById("root"));
-  root.render(/* @__PURE__ */ (0, import_jsx_runtime.jsx)(HelloWorld, {}));
+  root.render(/* @__PURE__ */ (0, import_jsx_runtime4.jsx)(ChatPanel, {}));
 })();
 /*! Bundled license information:
 

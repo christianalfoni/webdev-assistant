@@ -4,7 +4,7 @@ import * as fs from "fs/promises";
 import * as util from "util";
 import * as cp from "child_process";
 import { Embedder } from "./Embedder";
-import { defaultIgnores, normalizePath } from "./utils";
+import { defaultIgnores, getGitIgnoreGlobs, normalizePath } from "./utils";
 // @ts-ignore
 import parseGitignore from "gitignore-globs";
 import { glob } from "glob";
@@ -184,11 +184,14 @@ export class AssistantTools {
   }
 
   private async searchFilePaths(path: string) {
-    const gitignoreGlobs = parseGitignore(".gitignore");
+    const gitignoreGlobs = getGitIgnoreGlobs(this.workspacePath);
     const files = await glob("**/*.*", {
       ignore: defaultIgnores.concat(gitignoreGlobs),
     });
 
     return files.filter((filepath) => filepath.includes(path));
+  }
+  dispose() {
+    this.onToolCallEventEmitter.dispose();
   }
 }

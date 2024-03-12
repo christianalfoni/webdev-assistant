@@ -2,14 +2,16 @@ import * as vscode from "vscode";
 import { WorkspaceAssistant } from "./WorkspaceAssistant";
 import { Embedder } from "./Embedder";
 import { getAssistantId, getOpenAiApiKey } from "./config";
-import { OpenAIEmbeddings } from "langchain/embeddings/openai";
-import { ToolCallEvent, ToolCallType } from "./AssistantTools";
+import { OpenAIEmbeddings } from "@langchain/openai";
+
 import {
   ChatPanelClientMessage,
   ChatPanelClientState,
   ChatPanelMessage,
   ChatPanelState,
 } from "./types";
+import OpenAI from "openai";
+import { ToolCallEvent } from "./AssistantTools";
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
@@ -92,7 +94,16 @@ class ChatPanel {
     return this._state;
   }
 
+  get assistant() {
+    if (this._state.status !== "READY") {
+      throw new Error("The panel is not in a READY state");
+    }
+
+    return this._state.assistant;
+  }
+
   set state(state: ChatPanelState) {
+    console.log("STATE", state);
     this._state = state;
 
     switch (state.status) {
@@ -167,22 +178,106 @@ class ChatPanel {
     // Handle messages from the webview
     this._panel.webview.onDidReceiveMessage(
       (message: ChatPanelClientMessage) => {
-        switch (message.type) {
-          case "assistant_request": {
-            break;
-          }
-          case "state_request": {
-            break;
-          }
-        }
+        this.handleClientMessage(message);
       },
       null,
       this._disposables
     );
   }
 
+  private handleClientMessage(message: ChatPanelClientMessage) {
+    switch (message.type) {
+      case "assistant_request": {
+        this.updateClientReadyState((current) => ({
+          ...current,
+          messages: [
+            ...current.messages,
+            {
+              role: "user",
+              text: message.text,
+            },
+          ],
+        }));
+        this.assistant.addMessage(message.text);
+        break;
+      }
+      case "state_request": {
+        this.sendMessageToClient({
+          type: "state_update",
+          state: this.clientState,
+        });
+        break;
+      }
+    }
+  }
+
+  private handleAssistantMessage(message: string) {
+    this.updateClientReadyState((current) => ({
+      ...current,
+      messages: [
+        ...current.messages,
+        {
+          role: "assistant",
+          text: message,
+          actions: [],
+        },
+      ],
+    }));
+  }
+
+  private handleAssistantRunUpdate(run: OpenAI.Beta.Threads.RunStatus) {
+    // Can be used to show the state of the conversation
+  }
+
+  private handleAssistantToolCallEvent(toolCallEvent: ToolCallEvent) {
+    this.updateClientReadyState((current) => {
+      const lastAssistantMessage = current.messages
+        .filter((message) => message.role === "assistant")
+        .pop();
+
+      // This should never happen
+      if (!lastAssistantMessage || lastAssistantMessage.role !== "assistant") {
+        return current;
+      }
+
+      return {
+        ...current,
+        messages: [
+          ...current.messages.slice(0, current.messages.length - 1),
+          {
+            ...lastAssistantMessage,
+            actions: [
+              ...lastAssistantMessage.actions,
+              {
+                // We need more events to identify when they are done... maybe the assitant should really handle the messages
+                ...toolCallEvent,
+                status: "pending",
+              },
+            ],
+          },
+        ],
+      };
+    });
+  }
+
   private sendMessageToClient(message: ChatPanelMessage) {
     this._panel.webview.postMessage(message);
+  }
+
+  private updateClientReadyState(
+    cb: (
+      current: ChatPanelClientState & { status: "READY" }
+    ) => ChatPanelClientState & { status: "READY" }
+  ) {
+    if (this.clientState.status !== "READY") {
+      return;
+    }
+
+    this.clientState = cb(this.clientState);
+    this.sendMessageToClient({
+      type: "state_update",
+      state: this.clientState,
+    });
   }
 
   private updateWorkspace(): ChatPanelState {
@@ -250,16 +345,28 @@ class ChatPanel {
     embedder
       .then((embedder) => {
         if (this.state === pendingState) {
+          const assistant = new WorkspaceAssistant({
+            workspacePath,
+            openAiApiKey,
+            assistantId,
+            embedder,
+          });
+
           this.state = {
             status: "READY",
             path: workspacePath,
-            assistant: new WorkspaceAssistant({
-              workspacePath,
-              openAiApiKey,
-              assistantId,
-              embedder,
-            }),
+            assistant,
           };
+
+          assistant.onMessage((message) =>
+            this.handleAssistantMessage(message)
+          );
+          assistant.onRunStatusUpdate((run) =>
+            this.handleAssistantRunUpdate(run)
+          );
+          assistant.onToolCallEvent((toolCallEvent) =>
+            this.handleAssistantToolCallEvent(toolCallEvent)
+          );
         }
       })
       .catch((error) => {

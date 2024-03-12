@@ -7,8 +7,8 @@ export type RunCallback = (run: OpenAI.Beta.Threads.Run) => void;
 
 export class AssistantThread {
   static async create(
-    assistantId: string,
     openAiApiKey: string,
+    assistantId: string,
     onUpdate: RunCallback
   ) {
     const openai = new OpenAI({

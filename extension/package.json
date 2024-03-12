@@ -49,6 +49,7 @@
     "@types/react": "^18.2.64",
     "@types/react-dom": "^18.2.21",
     "@types/vscode": "^1.87.0",
+    "@types/vscode-webview": "^1.57.5",
     "@typescript-eslint/eslint-plugin": "^7.0.2",
     "@typescript-eslint/parser": "^7.0.2",
     "@vscode/test-cli": "^0.0.6",
@@ -58,6 +59,7 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
+    "@langchain/openai": "^0.0.19",
     "closevector-node": "^0.1.6",
     "gitignore-globs": "^0.1.1",
     "glob": "^10.3.10",

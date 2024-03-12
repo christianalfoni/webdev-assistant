@@ -54,7 +54,7 @@ export type ChatMessage =
 export type ChatPanelClientMessage =
   | {
       type: "assistant_request";
-      message: string;
+      text: string;
     }
   | {
       type: "state_request";

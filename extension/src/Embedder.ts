@@ -1,15 +1,14 @@
 import * as path from "path";
 import * as fs from "fs/promises";
+
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 
 import { CloseVectorNode } from "@langchain/community/vectorstores/closevector/node";
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { Document } from "langchain/document";
 
-// @ts-ignore
-import parseGitignore from "gitignore-globs";
 import { glob } from "glob";
-import { defaultIgnores } from "./utils";
+import { defaultIgnores, getGitIgnoreGlobs } from "./utils";
 
 const EMBEDDINGS_FOLDER_NAME = ".embeddings";
 
@@ -54,15 +53,21 @@ export class Embedder {
       vectorStore = await CloseVectorNode.load(directory, embeddings);
     } catch (error) {
       console.log("Creating embedding...");
-      const gitignoreGlobs = parseGitignore(".gitignore");
+      const gitignoreGlobs = getGitIgnoreGlobs(workspacePath);
+
       const files = await glob("**/*.*", {
         ignore: defaultIgnores.concat(gitignoreGlobs),
+        cwd: workspacePath,
       });
+
+      console.log("Files...", files);
 
       const docs = await Promise.all(
         files.flatMap(async (filepath) => {
           const extension = path.extname(filepath);
-          const pageContent = (await fs.readFile(filepath)).toString();
+          const pageContent = (
+            await fs.readFile(path.join(workspacePath, filepath))
+          ).toString();
           const splitter = textSplitters[extension];
           const type = codeExtensions.includes(extension) ? "code" : "doc";
 

@@ -1,9 +1,9 @@
 import OpenAI from "openai";
-
+import * as fs from "fs/promises";
 import { Disposable, EventEmitter } from "vscode";
 import { AssistantThread } from "./AssistantThread";
 import { createMessageOutput } from "./utils";
-import { AssistantTools } from "./AssistantTools";
+import { AssistantTools, ToolCallEvent } from "./AssistantTools";
 import { Embedder } from "./Embedder";
 
 type RunStatus = OpenAI.Beta.Threads.Run["status"];
@@ -13,6 +13,8 @@ export class WorkspaceAssistant implements Disposable {
   onRunStatusUpdate = this.onRunStatusUpdateEmitter.event;
   private onMessageEmitter = new EventEmitter<string>();
   onMessage = this.onMessageEmitter.event;
+  private onToolCallEventEmitter = new EventEmitter<ToolCallEvent>();
+  onToolCallEvent = this.onToolCallEventEmitter.event;
 
   private currentThread?: AssistantThread;
   private assistantId: string;
@@ -23,8 +25,8 @@ export class WorkspaceAssistant implements Disposable {
 
   constructor(params: {
     workspacePath: string;
-    assistantId: string;
     openAiApiKey: string;
+    assistantId: string;
     embedder: Embedder;
   }) {
     this.workspacePath = params.workspacePath;
@@ -32,6 +34,10 @@ export class WorkspaceAssistant implements Disposable {
     this.openAiApiKey = params.openAiApiKey;
     this.embedder = params.embedder;
     this.tools = new AssistantTools(this.workspacePath, this.embedder);
+
+    this.tools.onToolCallEvent((toolCallevent) =>
+      this.onToolCallEventEmitter.fire(toolCallevent)
+    );
   }
 
   async createNewThread() {
@@ -39,7 +45,7 @@ export class WorkspaceAssistant implements Disposable {
       this.currentThread.dispose();
     }
 
-    const thread = (this.currentThread = await AssistantThread.create(
+    const thread = await AssistantThread.create(
       this.openAiApiKey,
       this.assistantId,
       async (run) => {
@@ -64,12 +70,30 @@ export class WorkspaceAssistant implements Disposable {
           return;
         }
       }
-    ));
+    );
+
+    return thread;
   }
-  addMessage() {
-    // `You are a web developer working on a project in the ${process.cwd()} directory. The project code is embedded and you can search the embeddings to get more context.`,
+  async addMessage(content: string) {
+    if (!this.currentThread) {
+      this.currentThread = await this.createNewThread();
+    }
+
+    const rootContent = await fs.readdir(this.workspacePath);
+
+    const instructions = `You are a web developer working on a project in the ${
+      this.workspacePath
+    } directory with the following files and folders in the root ${JSON.stringify(
+      rootContent
+    )}. The project code has embeddings you can search to get more context.`;
+
+    return this.currentThread.addMessage(content, instructions);
   }
   dispose() {
     this.embedder.dispose();
+    this.tools.dispose();
+    this.onMessageEmitter.dispose();
+    this.onRunStatusUpdateEmitter.dispose();
+    this.onToolCallEventEmitter.dispose();
   }
 }
