@@ -92,8 +92,8 @@ export class Embedder {
         (codeExtensions.includes(extension) ||
           docExtensions.includes(extension))
       ) {
+        const pageContent = (await fs.readFile(event.fsPath)).toString();
         const filepath = event.fsPath.substring(workspacePath.length + 1);
-        const pageContent = (await fs.readFile(filepath)).toString();
         const type = getIndexTypeFromFilepath(filepath);
         console.log("Updating index item " + filepath);
         await index.upsertItem({
@@ -111,8 +111,8 @@ export class Embedder {
         (codeExtensions.includes(extension) ||
           docExtensions.includes(extension))
       ) {
+        const pageContent = (await fs.readFile(event.fsPath)).toString();
         const filepath = event.fsPath.substring(workspacePath.length + 1);
-        const pageContent = (await fs.readFile(filepath)).toString();
         const type = getIndexTypeFromFilepath(filepath);
         console.log("Adding index item " + filepath);
         await index.insertItem({
