@@ -4,6 +4,7 @@ import { Embedder } from "./Embedder";
 import { getAssistantId, getOpenAiApiKey } from "./config";
 import { OpenAIEmbeddings } from "langchain/embeddings/openai";
 import { ToolCallEvent, ToolCallType } from "./AssistantTools";
+import { ChatPanelState } from "./types";
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
@@ -37,56 +38,6 @@ function getWebviewOptions(extensionUri: vscode.Uri): vscode.WebviewOptions {
     localResourceRoots: [vscode.Uri.joinPath(extensionUri, "media")],
   };
 }
-
-type AssistantAction = ToolCallEvent &
-  (
-    | {
-        status: "pending";
-      }
-    | {
-        status: "resolved";
-        result: string;
-      }
-    | {
-        status: "rejected";
-        error: string;
-      }
-  );
-
-export type ChatMessage =
-  | {
-      role: "assistant";
-      text: string;
-      actions: AssistantAction[];
-    }
-  | {
-      role: "user";
-      text: string;
-    };
-
-export type WorkspaceState =
-  | {
-      status: "NO_WORKSPACE";
-    }
-  | {
-      status: "MISSING_CONFIG";
-      path: string;
-    }
-  | {
-      status: "LOADING_EMBEDDINGS";
-      path: string;
-      embedder: Promise<Embedder>;
-    }
-  | {
-      status: "READY";
-      path: string;
-      assistant: WorkspaceAssistant;
-      messages: ChatMessage[];
-    }
-  | {
-      status: "ERROR";
-      error: string;
-    };
 
 /**
  * Manages cat coding webview panels
@@ -125,16 +76,16 @@ class ChatPanel {
   private readonly _panel: vscode.WebviewPanel;
   private readonly _extensionUri: vscode.Uri;
   private _disposables: vscode.Disposable[] = [];
-  private _workspaceState: WorkspaceState = {
+  private _state: ChatPanelState = {
     status: "NO_WORKSPACE",
   };
 
-  get workspaceState() {
-    return this._workspaceState;
+  get state() {
+    return this._state;
   }
 
-  set workspaceState(workspace: WorkspaceState) {
-    this._workspaceState = workspace;
+  set state(workspace: ChatPanelState) {
+    this._state = workspace;
   }
 
   private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
@@ -142,9 +93,9 @@ class ChatPanel {
     this._panel = panel;
     this._extensionUri = extensionUri;
 
-    this.workspaceState = this.updateWorkspace();
+    this.state = this.updateWorkspace();
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
-      this.workspaceState = this.updateWorkspace();
+      this.state = this.updateWorkspace();
     });
 
     // Set the webview's initial html content
@@ -169,8 +120,9 @@ class ChatPanel {
     this._panel.webview.onDidReceiveMessage(
       (message) => {
         switch (message.type) {
-          case "assistant_request":
-            return;
+          case "assistant_request": {
+            break;
+          }
         }
       },
       null,
@@ -178,27 +130,27 @@ class ChatPanel {
     );
   }
 
-  private updateWorkspace(): WorkspaceState {
+  private updateWorkspace(): ChatPanelState {
     const workspacePath = getWorkspacePath();
 
     // If already loaded, but changing to new workspace, we dispose
     // of the assistant
     if (
-      this.workspaceState &&
-      this.workspaceState.status === "READY" &&
-      this.workspaceState.path !== workspacePath
+      this.state &&
+      this.state.status === "READY" &&
+      this.state.path !== workspacePath
     ) {
-      this.workspaceState.assistant.dispose();
+      this.state.assistant.dispose();
     }
 
     // We might change during the loading of the embedder, in this case
     // we wait until it resolves and then dispose of it
     if (
-      this.workspaceState &&
-      this.workspaceState.status === "LOADING_EMBEDDINGS" &&
-      this.workspaceState.path !== workspacePath
+      this.state &&
+      this.state.status === "LOADING_EMBEDDINGS" &&
+      this.state.path !== workspacePath
     ) {
-      this.workspaceState.embedder.then((embedder) => embedder.dispose());
+      this.state.embedder.then((embedder) => embedder.dispose());
     }
 
     if (!workspacePath) {
@@ -219,12 +171,12 @@ class ChatPanel {
 
     // If we somehow load the same workspace, we do nothing
     if (
-      this.workspaceState &&
-      (this.workspaceState.status === "READY" ||
-        this.workspaceState.status === "LOADING_EMBEDDINGS") &&
-      this.workspaceState.path === workspacePath
+      this.state &&
+      (this.state.status === "READY" ||
+        this.state.status === "LOADING_EMBEDDINGS") &&
+      this.state.path === workspacePath
     ) {
-      return this.workspaceState;
+      return this.state;
     }
 
     const embeddings = new OpenAIEmbeddings({
@@ -234,7 +186,7 @@ class ChatPanel {
 
     const embedder = Embedder.load(workspacePath, embeddings);
 
-    const pendingState: WorkspaceState = {
+    const pendingState: ChatPanelState = {
       status: "LOADING_EMBEDDINGS",
       path: workspacePath,
       embedder,
@@ -242,8 +194,8 @@ class ChatPanel {
 
     embedder
       .then((embedder) => {
-        if (this.workspaceState === pendingState) {
-          this.workspaceState = {
+        if (this.state === pendingState) {
+          this.state = {
             status: "READY",
             path: workspacePath,
             assistant: new WorkspaceAssistant({
@@ -252,13 +204,12 @@ class ChatPanel {
               assistantId,
               embedder,
             }),
-            messages: [],
           };
         }
       })
       .catch((error) => {
-        if (this.workspaceState === pendingState) {
-          this.workspaceState = {
+        if (this.state === pendingState) {
+          this.state = {
             status: "ERROR",
             error: String(error),
           };
