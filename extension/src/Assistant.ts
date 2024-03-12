@@ -18,20 +18,20 @@ export class Assistant implements Disposable {
 
   private currentThread?: AssistantThread;
   private assistantId: string;
-  private openAiApiKey: string;
+  private openai: OpenAI;
   private workspacePath: string;
   private embedder: Embedder;
   private tools;
 
   constructor(params: {
     workspacePath: string;
-    openAiApiKey: string;
+    openai: OpenAI;
     assistantId: string;
     embedder: Embedder;
   }) {
     this.workspacePath = params.workspacePath;
     this.assistantId = params.assistantId;
-    this.openAiApiKey = params.openAiApiKey;
+    this.openai = params.openai;
     this.embedder = params.embedder;
     this.tools = new AssistantTools(this.workspacePath, this.embedder);
 
@@ -46,7 +46,7 @@ export class Assistant implements Disposable {
     }
 
     const thread = await AssistantThread.create(
-      this.openAiApiKey,
+      this.openai,
       this.assistantId,
       async (run) => {
         this.onRunStatusUpdateEmitter.fire(run.status);

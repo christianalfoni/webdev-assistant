@@ -59,14 +59,12 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "@langchain/openai": "^0.0.19",
-    "closevector-node": "^0.1.6",
     "gitignore-globs": "^0.1.1",
     "glob": "^10.3.10",
-    "langchain": "^0.1.26",
     "openai": "^4.28.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-markdown": "^9.0.1"
+    "react-markdown": "^9.0.1",
+    "vectra": "^0.5.5"
   }
 }

@@ -2,7 +2,6 @@ import * as vscode from "vscode";
 import { Assistant } from "./Assistant";
 import { Embedder } from "./Embedder";
 import { getAssistantId, getOpenAiApiKey } from "./config";
-import { OpenAIEmbeddings } from "@langchain/openai";
 
 import {
   ChatPanelClientMessage,
@@ -344,12 +343,11 @@ class ChatPanel {
       return this.state;
     }
 
-    const embeddings = new OpenAIEmbeddings({
-      openAIApiKey: openAiApiKey,
-      modelName: Embedder.MODEL_NAME,
+    const openai = new OpenAI({
+      apiKey: openAiApiKey,
     });
 
-    const embedder = Embedder.load(workspacePath, embeddings);
+    const embedder = Embedder.load(workspacePath, openai);
 
     const pendingState: ChatPanelState = {
       status: "LOADING_EMBEDDINGS",
@@ -362,7 +360,7 @@ class ChatPanel {
         if (this.state === pendingState) {
           const assistant = new Assistant({
             workspacePath,
-            openAiApiKey,
+            openai,
             assistantId,
             embedder,
           });
