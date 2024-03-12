@@ -51,14 +51,18 @@ export type ChatMessage =
       text: string;
     };
 
-export type ChatPanelClientMessage = {
-  type: "assistant_request";
-  message: string;
-};
+export type ChatPanelClientMessage =
+  | {
+      type: "assistant_request";
+      message: string;
+    }
+  | {
+      type: "state_request";
+    };
 
 export type ChatPanelMessage = {
   type: "state_update";
-  state: ChatPanelState;
+  state: ChatPanelClientState;
 };
 
 export type ChatPanelClientState =

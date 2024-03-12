@@ -4,7 +4,12 @@ import { Embedder } from "./Embedder";
 import { getAssistantId, getOpenAiApiKey } from "./config";
 import { OpenAIEmbeddings } from "langchain/embeddings/openai";
 import { ToolCallEvent, ToolCallType } from "./AssistantTools";
-import { ChatPanelState } from "./types";
+import {
+  ChatPanelClientMessage,
+  ChatPanelClientState,
+  ChatPanelMessage,
+  ChatPanelState,
+} from "./types";
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
@@ -79,13 +84,56 @@ class ChatPanel {
   private _state: ChatPanelState = {
     status: "NO_WORKSPACE",
   };
+  private clientState: ChatPanelClientState = {
+    status: "NO_WORKSPACE",
+  };
 
   get state() {
     return this._state;
   }
 
-  set state(workspace: ChatPanelState) {
-    this._state = workspace;
+  set state(state: ChatPanelState) {
+    this._state = state;
+
+    switch (state.status) {
+      case "ERROR": {
+        this.clientState = {
+          status: "ERROR",
+          error: state.error,
+        };
+        break;
+      }
+      case "LOADING_EMBEDDINGS": {
+        this.clientState = {
+          status: "LOADING_EMBEDDINGS",
+        };
+        break;
+      }
+      case "MISSING_CONFIG": {
+        this.clientState = {
+          status: "MISSING_CONFIG",
+        };
+        break;
+      }
+      case "NO_WORKSPACE": {
+        this.clientState = {
+          status: "NO_WORKSPACE",
+        };
+        break;
+      }
+      case "READY": {
+        this.clientState = {
+          status: "READY",
+          messages: [],
+        };
+        break;
+      }
+    }
+
+    this.sendMessageToClient({
+      type: "state_update",
+      state: this.clientState,
+    });
   }
 
   private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
@@ -118,9 +166,12 @@ class ChatPanel {
 
     // Handle messages from the webview
     this._panel.webview.onDidReceiveMessage(
-      (message) => {
+      (message: ChatPanelClientMessage) => {
         switch (message.type) {
           case "assistant_request": {
+            break;
+          }
+          case "state_request": {
             break;
           }
         }
@@ -128,6 +179,10 @@ class ChatPanel {
       null,
       this._disposables
     );
+  }
+
+  private sendMessageToClient(message: ChatPanelMessage) {
+    this._panel.webview.postMessage(message);
   }
 
   private updateWorkspace(): ChatPanelState {
