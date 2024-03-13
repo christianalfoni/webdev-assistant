@@ -1,20 +1,22 @@
 import OpenAI from "openai";
 import { EventEmitter } from "vscode";
-import * as vscode from "vscode";
 import * as fs from "fs/promises";
-import * as util from "util";
 import * as cp from "child_process";
+
 import { Embedder } from "./Embedder";
 import { defaultIgnores, getGitIgnoreGlobs, normalizePath } from "./utils";
+
 // @ts-ignore
 import parseGitignore from "gitignore-globs";
 import { glob } from "glob";
 
-const exec = util.promisify(cp.exec);
-
 export type ToolCallEventType = ToolCallEvent["type"];
 
-export type ToolCallEvent =
+export type ToolCallEvent = {
+  status: "pending" | "rejected" | "resolved";
+  output: string;
+  id: string;
+} & (
   | {
       type: "search_code_embeddings";
       query: string;
@@ -47,7 +49,8 @@ export type ToolCallEvent =
   | {
       type: "search_file_paths";
       path: string;
-    };
+    }
+);
 
 export class AssistantTools {
   private onToolCallEventEmitter = new EventEmitter<ToolCallEvent>();
@@ -70,27 +73,28 @@ export class AssistantTools {
 
         let output;
 
+        const id = toolCall.id;
         const isToolCall = <T extends ToolCallEventType>(type: T) => {
           return toolCall.function.name === type;
         };
 
         try {
           if (isToolCall("search_code_embeddings")) {
-            output = await this.searchCodeEmbeddings(args.query);
+            output = await this.searchCodeEmbeddings(id, args.query);
           } else if (isToolCall("search_doc_embeddings")) {
-            output = await this.searchDocEmbeddings(args.query);
+            output = await this.searchDocEmbeddings(id, args.query);
           } else if (isToolCall("read_file")) {
-            output = await this.readFile(args.path);
+            output = await this.readFile(id, args.path);
           } else if (isToolCall("write_file")) {
-            output = await this.writeFile(args.path, args.content);
+            output = await this.writeFile(id, args.path, args.content);
           } else if (isToolCall("read_directory")) {
-            output = await this.readDirectory(args.path);
+            output = await this.readDirectory(id, args.path);
           } else if (isToolCall("delete_file")) {
-            output = await this.deleteFile(args.path);
+            output = await this.deleteFile(id, args.path);
           } else if (isToolCall("run_terminal_command")) {
-            output = await this.runTerminalCommand(args.command);
+            output = await this.runTerminalCommand(id, args.command, args.args);
           } else if (isToolCall("search_file_paths")) {
-            output = await this.searchFilePaths(args.path);
+            output = await this.searchFilePaths(id, args.path);
           } else {
             throw new Error("Not implemented " + toolCall.function.name);
           }
@@ -105,92 +109,316 @@ export class AssistantTools {
       })
     );
   }
-  private searchCodeEmbeddings(query: string) {
+  private searchCodeEmbeddings(id: string, query: string) {
     this.onToolCallEventEmitter.fire({
+      id,
+      status: "pending",
+      output: "",
       type: "search_code_embeddings",
       query,
     });
 
-    return this.embedder.searchCodeEmbeddings(query);
+    try {
+      const result = this.embedder.searchCodeEmbeddings(query);
+
+      this.onToolCallEventEmitter.fire({
+        id,
+        status: "resolved",
+        output: "",
+        type: "search_code_embeddings",
+        query,
+      });
+
+      return result;
+    } catch (error) {
+      this.onToolCallEventEmitter.fire({
+        id,
+        status: "rejected",
+        output: String(error),
+        type: "search_code_embeddings",
+        query,
+      });
+
+      throw error;
+    }
   }
-  private searchDocEmbeddings(query: string) {
+  private searchDocEmbeddings(id: string, query: string) {
     this.onToolCallEventEmitter.fire({
+      id,
+      status: "pending",
+      output: "",
       type: "search_doc_embeddings",
       query,
     });
 
-    return this.embedder.searchDocEmbeddings(query);
+    try {
+      const result = this.embedder.searchDocEmbeddings(query);
+      this.onToolCallEventEmitter.fire({
+        id,
+        status: "resolved",
+        output: "",
+        type: "search_doc_embeddings",
+        query,
+      });
+      return result;
+    } catch (error) {
+      this.onToolCallEventEmitter.fire({
+        id,
+        status: "rejected",
+        output: String(error),
+        type: "search_doc_embeddings",
+        query,
+      });
+
+      throw error;
+    }
   }
-  private async readFile(path: string) {
+  private async readFile(id: string, path: string) {
     const normalizedPath = normalizePath(this.workspacePath, path);
+    const relativePath = normalizedPath.substring(this.workspacePath.length);
 
     this.onToolCallEventEmitter.fire({
+      id,
+      output: "",
+      status: "pending",
       type: "read_file",
-      path: normalizedPath.substring(this.workspacePath.length),
+      path: relativePath,
     });
 
-    const content = await fs.readFile(normalizedPath);
+    try {
+      const content = await fs.readFile(normalizedPath);
 
-    return content.toString();
+      this.onToolCallEventEmitter.fire({
+        id,
+        output: "",
+        status: "resolved",
+        type: "read_file",
+        path: relativePath,
+      });
+
+      return content.toString();
+    } catch (error) {
+      this.onToolCallEventEmitter.fire({
+        id,
+        output: String(error),
+        status: "rejected",
+        type: "read_file",
+        path: relativePath,
+      });
+
+      throw error;
+    }
   }
-  private async writeFile(path: string, content: string) {
+  private async writeFile(id: string, path: string, content: string) {
     const normalizedPath = normalizePath(this.workspacePath, path);
+    const relativePath = normalizedPath.substring(this.workspacePath.length);
 
     this.onToolCallEventEmitter.fire({
+      id,
+      output: "",
+      status: "pending",
       type: "write_file",
-      path: normalizedPath.substring(this.workspacePath.length),
+      path: relativePath,
       content,
     });
 
-    await fs.writeFile(normalizedPath, content);
+    try {
+      await fs.writeFile(normalizedPath, content);
 
-    return "ok";
+      this.onToolCallEventEmitter.fire({
+        id,
+        output: "",
+        status: "resolved",
+        type: "write_file",
+        path: relativePath,
+        content,
+      });
+
+      return "ok";
+    } catch (error) {
+      this.onToolCallEventEmitter.fire({
+        id,
+        output: String(error),
+        status: "rejected",
+        type: "write_file",
+        path: relativePath,
+        content,
+      });
+      throw error;
+    }
   }
-  private readDirectory(path: string) {
+  private readDirectory(id: string, path: string) {
     const normalizedPath = normalizePath(this.workspacePath, path);
+    const relativePath = normalizedPath.substring(this.workspacePath.length);
 
     this.onToolCallEventEmitter.fire({
+      id,
+      output: "",
+      status: "pending",
       type: "read_directory",
-      path: normalizedPath.substring(this.workspacePath.length),
+      path: relativePath,
     });
 
-    return fs.readdir(normalizedPath);
+    try {
+      const result = fs.readdir(normalizedPath);
+
+      this.onToolCallEventEmitter.fire({
+        id,
+        output: "",
+        status: "resolved",
+        type: "read_directory",
+        path: relativePath,
+      });
+
+      return result;
+    } catch (error) {
+      this.onToolCallEventEmitter.fire({
+        id,
+        output: String(error),
+        status: "rejected",
+        type: "read_directory",
+        path: relativePath,
+      });
+
+      throw error;
+    }
   }
-  private async deleteFile(path: string) {
+  private async deleteFile(id: string, path: string) {
     const normalizedPath = normalizePath(this.workspacePath, path);
+    const relativePath = normalizedPath.substring(this.workspacePath.length);
 
     this.onToolCallEventEmitter.fire({
+      id,
+      output: "",
+      status: "pending",
       type: "delete_file",
-      path: normalizedPath.substring(this.workspacePath.length),
+      path: relativePath,
     });
 
-    await fs.rm(normalizedPath);
+    try {
+      await fs.rm(normalizedPath);
 
-    return "ok";
+      this.onToolCallEventEmitter.fire({
+        id,
+        output: "",
+        status: "resolved",
+        type: "delete_file",
+        path: relativePath,
+      });
+
+      return "ok";
+    } catch (error) {
+      this.onToolCallEventEmitter.fire({
+        id,
+        output: String(error),
+        status: "rejected",
+        type: "delete_file",
+        path: relativePath,
+      });
+
+      throw error;
+    }
   }
-  private async runTerminalCommand(command: string) {
+  private async runTerminalCommand(
+    id: string,
+    command: string,
+    args: string[]
+  ) {
+    const commandWithArgs = command + " " + args.join(" ");
+
     this.onToolCallEventEmitter.fire({
+      id,
+      output: "",
+      status: "pending",
       type: "run_terminal_command",
-      command,
+      command: commandWithArgs,
     });
 
-    const { stdout, stderr } = await exec(command);
+    return new Promise<{ exitCode: number; output: string }>((resolve) => {
+      const child = cp.spawn(command, args, {
+        cwd: this.workspacePath,
+      });
 
-    return stderr || stdout;
+      let outBuffer = "";
+      let errBuffer = "";
+
+      child.stdout.addListener("data", (buffer) => {
+        outBuffer += buffer;
+        this.onToolCallEventEmitter.fire({
+          id,
+          output: outBuffer,
+          status: "pending",
+          type: "run_terminal_command",
+          command: commandWithArgs,
+        });
+      });
+
+      child.stderr.addListener("data", (buffer) => {
+        errBuffer += buffer;
+      });
+
+      child.addListener("exit", (exitCode) => {
+        if (exitCode === 0) {
+          this.onToolCallEventEmitter.fire({
+            id,
+            status: "resolved",
+            output: outBuffer,
+            type: "run_terminal_command",
+            command: commandWithArgs,
+          });
+          resolve({ exitCode: 0, output: outBuffer });
+        } else {
+          this.onToolCallEventEmitter.fire({
+            id,
+            status: "rejected",
+            output: errBuffer,
+            type: "run_terminal_command",
+            command: commandWithArgs,
+          });
+
+          resolve({ exitCode: 1, output: errBuffer });
+        }
+      });
+    });
   }
 
-  private async searchFilePaths(path: string) {
+  private async searchFilePaths(id: string, path: string) {
     this.onToolCallEventEmitter.fire({
+      id,
+      output: "",
+      status: "pending",
       type: "search_file_paths",
       path,
     });
 
-    const gitignoreGlobs = getGitIgnoreGlobs(this.workspacePath);
-    const files = await glob("**/*.*", {
-      ignore: defaultIgnores.concat(gitignoreGlobs),
-    });
+    try {
+      const gitignoreGlobs = getGitIgnoreGlobs(this.workspacePath);
+      const files = await glob("**/*.*", {
+        ignore: defaultIgnores.concat(gitignoreGlobs),
+      });
 
-    return files.filter((filepath) => filepath.includes(path));
+      const result = files.filter((filepath) => filepath.includes(path));
+
+      this.onToolCallEventEmitter.fire({
+        id,
+        output: "",
+        status: "resolved",
+        type: "search_file_paths",
+        path,
+      });
+
+      return result;
+    } catch (error) {
+      this.onToolCallEventEmitter.fire({
+        id,
+        output: String(error),
+        status: "rejected",
+        type: "search_file_paths",
+        path,
+      });
+
+      throw error;
+    }
   }
   dispose() {
     this.onToolCallEventEmitter.dispose();

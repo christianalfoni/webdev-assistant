@@ -254,20 +254,24 @@ class ChatPanel {
         return current;
       }
 
+      const actionIndex = lastAssistantMessage.actions.findIndex(
+        (action) => action.id === toolCallEvent.id
+      );
+
       return {
         ...current,
         messages: [
           ...current.messages.slice(0, current.messages.length - 1),
           {
             ...lastAssistantMessage,
-            actions: [
-              ...lastAssistantMessage.actions,
-              {
-                // We need more events to identify when they are done... maybe the assitant should really handle the messages
-                ...toolCallEvent,
-                status: "pending",
-              },
-            ],
+            actions:
+              actionIndex === -1
+                ? [...lastAssistantMessage.actions, toolCallEvent]
+                : [
+                    ...lastAssistantMessage.actions.slice(0, actionIndex),
+                    toolCallEvent,
+                    ...lastAssistantMessage.actions.slice(actionIndex + 1),
+                  ],
           },
         ],
       };
@@ -428,10 +432,17 @@ class ChatPanel {
       "styles.css"
     );
 
+    const stylesXtermPath = vscode.Uri.joinPath(
+      this._extensionUri,
+      "media",
+      "xterm.css"
+    );
+
     // Uri to load styles into webview
     const stylesResetUri = webview.asWebviewUri(styleResetPath);
     const stylesVscodeUri = webview.asWebviewUri(stylesVscodePath);
     const stylesMainUri = webview.asWebviewUri(stylesMainPath);
+    const stylesXtermUri = webview.asWebviewUri(stylesXtermPath);
 
     // Use a nonce to only allow specific scripts to be run
     const nonce = getNonce();
@@ -452,6 +463,7 @@ class ChatPanel {
 				<link href="${stylesResetUri}" rel="stylesheet">
 				<link href="${stylesVscodeUri}" rel="stylesheet">
         <link href="${stylesMainUri}" rel="stylesheet">
+        <link href="${stylesXtermUri}" rel="stylesheet">
 
 				<title>WebDev Assistant</title>
 			</head>

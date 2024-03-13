@@ -65,6 +65,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^9.0.1",
-    "vectra": "^0.5.5"
+    "vectra": "^0.5.5",
+    "xterm": "^5.3.0"
   }
 }

@@ -25,20 +25,7 @@ export type ChatPanelState =
       error: string;
     };
 
-export type AssistantAction = ToolCallEvent &
-  (
-    | {
-        status: "pending";
-      }
-    | {
-        status: "resolved";
-        result: string;
-      }
-    | {
-        status: "rejected";
-        error: string;
-      }
-  );
+export type AssistantAction = ToolCallEvent;
 
 export type ChatMessage =
   | {
