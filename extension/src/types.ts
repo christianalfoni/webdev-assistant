@@ -45,6 +45,11 @@ export type ChatPanelClientMessage =
     }
   | {
       type: "state_request";
+    }
+  | {
+      type: "terminal_input";
+      actionId: string;
+      input: string;
     };
 
 export type ChatPanelMessage = {

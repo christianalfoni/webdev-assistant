@@ -63,7 +63,17 @@ export function ChatPanel() {
     <div className="chat-messages">
       <div className="chat-messages-pusher" />
       {state.messages.map((message, index) => (
-        <ChatMessage key={index} message={message} />
+        <ChatMessage
+          key={index}
+          message={message}
+          onTerminalInput={(actionId: string, input: string) => {
+            postMessage({
+              type: "terminal_input",
+              actionId,
+              input,
+            });
+          }}
+        />
       ))}
       <NewChatMessage
         onSendMessage={(text) => {

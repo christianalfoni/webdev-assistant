@@ -4,6 +4,44 @@ import type { AssistantAction, ChatMessage } from "../src/types";
 import Markdown from "react-markdown";
 import { Terminal } from "xterm";
 
+function CogIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className="action-icon"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4.5 12a7.5 7.5 0 0 0 15 0m-15 0a7.5 7.5 0 1 1 15 0m-15 0H3m16.5 0H21m-1.5 0H12m-8.457 3.077 1.41-.513m14.095-5.13 1.41-.513M5.106 17.785l1.15-.964m11.49-9.642 1.149-.964M7.501 19.795l.75-1.3m7.5-12.99.75-1.3m-6.063 16.658.26-1.477m2.605-14.772.26-1.477m0 17.726-.26-1.477M10.698 4.614l-.26-1.477M16.5 19.794l-.75-1.299M7.5 4.205 12 12m6.894 5.785-1.149-.964M6.256 7.178l-1.15-.964m15.352 8.864-1.41-.513M4.954 9.435l-1.41-.514M12.002 12l-3.75 6.495"
+      />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className="action-icon"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="m4.5 12.75 6 6 9-13.5"
+      />
+    </svg>
+  );
+}
+
 function CommandLineIcon() {
   return (
     <svg
@@ -23,10 +61,31 @@ function CommandLineIcon() {
   );
 }
 
+function CodeIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className="action-icon"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5"
+      />
+    </svg>
+  );
+}
+
 function TerminalCommand({
   action,
+  onInput,
 }: {
   action: AssistantAction & { type: "run_terminal_command" };
+  onInput: (input: string) => void;
 }) {
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -40,6 +99,7 @@ function TerminalCommand({
       });
       termRef.current = term;
       term.open(terminalContainerRef.current);
+      term.onData(onInput);
     }
   }, []);
 
@@ -56,16 +116,23 @@ function TerminalCommand({
   }, [action.output]);
 
   return (
-    <div className="action-terminal">
+    <div className="action-wrapper">
       <div className="action-header">
         <CommandLineIcon /> {action.command}
+        {action.status === "pending" ? <CogIcon /> : <CheckIcon />}
       </div>
       <div ref={terminalContainerRef} />
     </div>
   );
 }
 
-export function ChatMessage({ message }: { message: ChatMessage }) {
+export function ChatMessage({
+  message,
+  onTerminalInput,
+}: {
+  message: ChatMessage;
+  onTerminalInput: (actionId: string, input: string) => void;
+}) {
   return (
     <div className="chat-message-wrapper">
       <div className="chat-message-avatar">
@@ -86,39 +153,114 @@ export function ChatMessage({ message }: { message: ChatMessage }) {
 
               switch (action.type) {
                 case "write_file": {
-                  label = "Writing file: " + action.path;
-                  break;
+                  return (
+                    <div className="action-wrapper">
+                      <div className="action-header">
+                        <CodeIcon />
+                        {"Writing file " + action.path}
+                        {action.status === "pending" ? (
+                          <CogIcon />
+                        ) : (
+                          <CheckIcon />
+                        )}
+                      </div>
+                    </div>
+                  );
                 }
                 case "delete_file": {
-                  label = "Deleting file: " + action.path;
-                  break;
+                  return (
+                    <div className="action-wrapper">
+                      <div className="action-header">
+                        <CodeIcon />
+                        {"Deleting file " + action.path}
+                        {action.status === "pending" ? (
+                          <CogIcon />
+                        ) : (
+                          <CheckIcon />
+                        )}
+                      </div>
+                    </div>
+                  );
                 }
                 case "read_directory": {
-                  label = "Reading directory: " + action.path;
-                  break;
+                  return (
+                    <div className="action-wrapper">
+                      <div className="action-header">
+                        <CodeIcon />
+                        {"Reading directory " + action.path}
+                        {action.status === "pending" ? (
+                          <CogIcon />
+                        ) : (
+                          <CheckIcon />
+                        )}
+                      </div>
+                    </div>
+                  );
                 }
                 case "read_file": {
-                  label = "Reading file: " + action.path;
-                  break;
+                  return (
+                    <div className="action-wrapper">
+                      <div className="action-header">
+                        <CodeIcon />
+                        {"Reading file " + action.path}
+                        {action.status === "pending" ? (
+                          <CogIcon />
+                        ) : (
+                          <CheckIcon />
+                        )}
+                      </div>
+                    </div>
+                  );
                 }
                 case "run_terminal_command": {
-                  return <TerminalCommand action={action} />;
+                  return (
+                    <TerminalCommand
+                      action={action}
+                      onInput={(input) => onTerminalInput(action.id, input)}
+                    />
+                  );
                 }
                 case "search_code_embeddings": {
-                  label = "Searching CODE embeddings: " + action.query;
-                  break;
+                  return (
+                    <div className="action-wrapper">
+                      <div className="action-header">
+                        <CodeIcon />
+                        {"Searching CODE embeddings for " + action.query}
+                        {action.status === "pending" ? (
+                          <CogIcon />
+                        ) : (
+                          <CheckIcon />
+                        )}
+                      </div>
+                    </div>
+                  );
                 }
                 case "search_doc_embeddings": {
-                  label = "Searching DOC embeddings: " + action.query;
-                  break;
+                  return (
+                    <div className="action-wrapper">
+                      <div className="action-header">
+                        <CodeIcon />
+                        {"Searching DOC embeddings for " + action.query}
+                        {action.status === "pending" ? (
+                          <CogIcon />
+                        ) : (
+                          <CheckIcon />
+                        )}
+                      </div>
+                    </div>
+                  );
                 }
                 case "search_file_paths": {
-                  label = "Searching file paths: " + action.path;
-                  break;
+                  return (
+                    <div className="action-wrapper">
+                      <div className="action-header">
+                        <CodeIcon />
+                        {"Searching file paths for " + action.path}
+                      </div>
+                    </div>
+                  );
                 }
               }
-
-              return <li>{label}</li>;
             })}
           </ul>
         ) : null}

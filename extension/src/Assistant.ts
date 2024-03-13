@@ -89,6 +89,9 @@ export class Assistant implements Disposable {
 
     return this.currentThread.addMessage(content, instructions);
   }
+  handleTerminalInput(actionId: string, input: string) {
+    this.tools.handleTerminalInput(actionId, input);
+  }
   dispose() {
     this.embedder.dispose();
     this.tools.dispose();

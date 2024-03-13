@@ -74,13 +74,17 @@ body,
 .action-header {
   display: flex;
   align-items: center;
-  
 }
 
-.action-terminal {
+.action-header > svg:last-child {
+  margin-left: auto;
+}
+
+.action-wrapper {
   background-color: black;
   padding: 10px;
   border-radius: 10px;
   width: 500px;
   overflow: hidden;
+  margin-bottom: 10px;
 }

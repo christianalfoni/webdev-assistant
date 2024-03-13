@@ -40777,6 +40777,48 @@ WARNING: This link could potentially be dangerous`)) {
   // client/ChatMessage.tsx
   var import_xterm = __toESM(require_xterm());
   var import_jsx_runtime3 = __toESM(require_jsx_runtime());
+  function CogIcon() {
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+      "svg",
+      {
+        xmlns: "http://www.w3.org/2000/svg",
+        fill: "none",
+        viewBox: "0 0 24 24",
+        strokeWidth: 1.5,
+        stroke: "currentColor",
+        className: "action-icon",
+        children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+          "path",
+          {
+            strokeLinecap: "round",
+            strokeLinejoin: "round",
+            d: "M4.5 12a7.5 7.5 0 0 0 15 0m-15 0a7.5 7.5 0 1 1 15 0m-15 0H3m16.5 0H21m-1.5 0H12m-8.457 3.077 1.41-.513m14.095-5.13 1.41-.513M5.106 17.785l1.15-.964m11.49-9.642 1.149-.964M7.501 19.795l.75-1.3m7.5-12.99.75-1.3m-6.063 16.658.26-1.477m2.605-14.772.26-1.477m0 17.726-.26-1.477M10.698 4.614l-.26-1.477M16.5 19.794l-.75-1.299M7.5 4.205 12 12m6.894 5.785-1.149-.964M6.256 7.178l-1.15-.964m15.352 8.864-1.41-.513M4.954 9.435l-1.41-.514M12.002 12l-3.75 6.495"
+          }
+        )
+      }
+    );
+  }
+  function CheckIcon() {
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+      "svg",
+      {
+        xmlns: "http://www.w3.org/2000/svg",
+        fill: "none",
+        viewBox: "0 0 24 24",
+        strokeWidth: 1.5,
+        stroke: "currentColor",
+        className: "action-icon",
+        children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+          "path",
+          {
+            strokeLinecap: "round",
+            strokeLinejoin: "round",
+            d: "m4.5 12.75 6 6 9-13.5"
+          }
+        )
+      }
+    );
+  }
   function CommandLineIcon() {
     return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
       "svg",
@@ -40798,8 +40840,30 @@ WARNING: This link could potentially be dangerous`)) {
       }
     );
   }
+  function CodeIcon() {
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+      "svg",
+      {
+        xmlns: "http://www.w3.org/2000/svg",
+        fill: "none",
+        viewBox: "0 0 24 24",
+        strokeWidth: 1.5,
+        stroke: "currentColor",
+        className: "action-icon",
+        children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+          "path",
+          {
+            strokeLinecap: "round",
+            strokeLinejoin: "round",
+            d: "M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5"
+          }
+        )
+      }
+    );
+  }
   function TerminalCommand({
-    action
+    action,
+    onInput
   }) {
     const terminalContainerRef = (0, import_react2.useRef)(null);
     const termRef = (0, import_react2.useRef)(null);
@@ -40812,6 +40876,7 @@ WARNING: This link could potentially be dangerous`)) {
         });
         termRef.current = term;
         term.open(terminalContainerRef.current);
+        term.onData(onInput);
       }
     }, []);
     (0, import_react2.useEffect)(() => {
@@ -40823,16 +40888,20 @@ WARNING: This link could potentially be dangerous`)) {
         bufferLengthRef.current = lines.length - 1;
       }
     }, [action.output]);
-    return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-terminal", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-wrapper", children: [
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-header", children: [
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CommandLineIcon, {}),
         " ",
-        action.command
+        action.command,
+        action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CogIcon, {}) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CheckIcon, {})
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { ref: terminalContainerRef })
     ] });
   }
-  function ChatMessage({ message }) {
+  function ChatMessage({
+    message,
+    onTerminalInput
+  }) {
     return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "chat-message-wrapper", children: [
       /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "chat-message-avatar", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
         "img",
@@ -40846,38 +40915,63 @@ WARNING: This link could potentially be dangerous`)) {
           let label;
           switch (action.type) {
             case "write_file": {
-              label = "Writing file: " + action.path;
-              break;
+              return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "action-wrapper", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-header", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CodeIcon, {}),
+                "Writing file " + action.path,
+                action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CogIcon, {}) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CheckIcon, {})
+              ] }) });
             }
             case "delete_file": {
-              label = "Deleting file: " + action.path;
-              break;
+              return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "action-wrapper", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-header", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CodeIcon, {}),
+                "Deleting file " + action.path,
+                action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CogIcon, {}) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CheckIcon, {})
+              ] }) });
             }
             case "read_directory": {
-              label = "Reading directory: " + action.path;
-              break;
+              return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "action-wrapper", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-header", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CodeIcon, {}),
+                "Reading directory " + action.path,
+                action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CogIcon, {}) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CheckIcon, {})
+              ] }) });
             }
             case "read_file": {
-              label = "Reading file: " + action.path;
-              break;
+              return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "action-wrapper", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-header", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CodeIcon, {}),
+                "Reading file " + action.path,
+                action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CogIcon, {}) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CheckIcon, {})
+              ] }) });
             }
             case "run_terminal_command": {
-              return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(TerminalCommand, { action });
+              return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+                TerminalCommand,
+                {
+                  action,
+                  onInput: (input) => onTerminalInput(action.id, input)
+                }
+              );
             }
             case "search_code_embeddings": {
-              label = "Searching CODE embeddings: " + action.query;
-              break;
+              return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "action-wrapper", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-header", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CodeIcon, {}),
+                "Searching CODE embeddings for " + action.query,
+                action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CogIcon, {}) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CheckIcon, {})
+              ] }) });
             }
             case "search_doc_embeddings": {
-              label = "Searching DOC embeddings: " + action.query;
-              break;
+              return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "action-wrapper", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-header", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CodeIcon, {}),
+                "Searching DOC embeddings for " + action.query,
+                action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CogIcon, {}) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CheckIcon, {})
+              ] }) });
             }
             case "search_file_paths": {
-              label = "Searching file paths: " + action.path;
-              break;
+              return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "action-wrapper", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-header", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CodeIcon, {}),
+                "Searching file paths for " + action.path
+              ] }) });
             }
           }
-          return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("li", { children: label });
         }) }) : null,
         message.text ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Markdown, { children: message.text }) : "Thinking..."
       ] })
@@ -40929,7 +41023,20 @@ WARNING: This link could potentially be dangerous`)) {
     }
     return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "chat-messages", children: [
       /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "chat-messages-pusher" }),
-      state.messages.map((message, index2) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(ChatMessage, { message }, index2)),
+      state.messages.map((message, index2) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        ChatMessage,
+        {
+          message,
+          onTerminalInput: (actionId, input) => {
+            postMessage({
+              type: "terminal_input",
+              actionId,
+              input
+            });
+          }
+        },
+        index2
+      )),
       /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
         NewChatMessage,
         {

@@ -56,8 +56,17 @@ export class AssistantTools {
   private onToolCallEventEmitter = new EventEmitter<ToolCallEvent>();
   onToolCallEvent = this.onToolCallEventEmitter.event;
 
+  private terminals: Record<string, cp.ChildProcessWithoutNullStreams> = {};
+
   constructor(private workspacePath: string, private embedder: Embedder) {}
 
+  handleTerminalInput(actionId: string, input: string) {
+    if (!this.terminals[actionId]) {
+      return;
+    }
+
+    this.terminals[actionId].stdin.write(input);
+  }
   handleToolCalls(
     toolCalls: OpenAI.Beta.Threads.Runs.RequiredActionFunctionToolCall[]
   ) {
@@ -337,7 +346,10 @@ export class AssistantTools {
     return new Promise<{ exitCode: number; output: string }>((resolve) => {
       const child = cp.spawn(command, args, {
         cwd: this.workspacePath,
+        shell: true,
       });
+
+      this.terminals[id] = child;
 
       let outBuffer = "";
       let errBuffer = "";
@@ -357,7 +369,9 @@ export class AssistantTools {
         errBuffer += buffer;
       });
 
-      child.addListener("exit", (exitCode) => {
+      child.addListener("close", (exitCode) => {
+        delete this.terminals[id];
+
         if (exitCode === 0) {
           this.onToolCallEventEmitter.fire({
             id,

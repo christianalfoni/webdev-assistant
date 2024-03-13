@@ -212,6 +212,9 @@ class ChatPanel {
         });
         break;
       }
+      case "terminal_input": {
+        this.assistant.handleTerminalInput(message.actionId, message.input);
+      }
     }
   }
 
