@@ -85,10 +85,12 @@ function TerminalCommand({
   action,
   onInput,
   onExit,
+  onKeep,
 }: {
   action: AssistantAction & { type: "run_terminal_command" };
   onInput: (input: string) => void;
   onExit: () => void;
+  onKeep: () => void;
 }) {
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -133,9 +135,10 @@ function TerminalCommand({
       </div>
       <div ref={terminalContainerRef} />
       {action.status === "pending" ? (
-        <button className="action-exit-button" onClick={onExit}>
-          Exit
-        </button>
+        <div className="action-buttons">
+          <button onClick={onKeep}>Keep</button>
+          <button onClick={onExit}>Exit</button>
+        </div>
       ) : null}
     </div>
   );
@@ -145,10 +148,12 @@ export function ChatMessage({
   message,
   onTerminalInput,
   onTerminalExit,
+  onKeepTerminal,
 }: {
   message: ChatMessage;
   onTerminalInput: (actionId: string, input: string) => void;
   onTerminalExit: (actionId: string) => void;
+  onKeepTerminal: (actionId: string) => void;
 }) {
   const isAssistantAwaitingActions =
     message.role === "assistant" &&
@@ -233,12 +238,28 @@ export function ChatMessage({
                     </div>
                   );
                 }
+                case "read_terminal_outputs": {
+                  return (
+                    <div className="action-wrapper">
+                      <div className="action-header">
+                        <CodeIcon />
+                        {"Reading terminal outputs"}
+                        {action.status === "pending" ? (
+                          <CogIcon />
+                        ) : (
+                          <CheckIcon />
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
                 case "run_terminal_command": {
                   return (
                     <TerminalCommand
                       action={action}
                       onInput={(input) => onTerminalInput(action.id, input)}
                       onExit={() => onTerminalExit(action.id)}
+                      onKeep={() => onKeepTerminal(action.id)}
                     />
                   );
                 }
@@ -278,6 +299,11 @@ export function ChatMessage({
                       <div className="action-header">
                         <CodeIcon />
                         {"Searching file paths for " + action.path}
+                        {action.status === "pending" ? (
+                          <CogIcon />
+                        ) : (
+                          <CheckIcon />
+                        )}
                       </div>
                     </div>
                   );

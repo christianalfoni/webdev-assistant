@@ -224,6 +224,10 @@ class ChatPanel {
         this.assistant.handleKillTerminal(message.actionId);
         break;
       }
+      case "terminal_keep": {
+        this.assistant.handleKeepTerminal(message.actionId);
+        break;
+      }
     }
   }
 

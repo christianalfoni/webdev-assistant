@@ -50,6 +50,10 @@ export type ChatPanelClientMessage =
   | {
       type: "terminal_kill";
       actionId: string;
+    }
+  | {
+      type: "terminal_keep";
+      actionId: string;
     };
 
 export type ChatPanelMessage =

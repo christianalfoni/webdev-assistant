@@ -56,7 +56,82 @@ export type ToolCallEvent = { id: string } & (
         type: "search_file_paths";
         path: string;
       }
+    | {
+        type: "read_terminal_outputs";
+      }
   );
+
+class Terminal {
+  private child: cp.ChildProcessWithoutNullStreams;
+  private onDetach: () => void;
+
+  id: string;
+  buffer: string[] = [];
+  command: string;
+
+  constructor({
+    id,
+    workspacePath,
+    command,
+    args,
+    onOutput,
+    onClose,
+    onDetach,
+  }: {
+    id: string;
+    workspacePath: string;
+    command: string;
+    args: string[];
+    onOutput: (output: string) => void;
+    onClose: (exitCode: number | null) => void;
+    onDetach: () => void;
+  }) {
+    this.id = id;
+    this.command = command;
+    this.onDetach = onDetach;
+
+    const child = cp.spawn(command, args, {
+      cwd: workspacePath,
+    });
+
+    this.child = child;
+
+    child.stdout.addListener("data", (data) => {
+      const stringData = data.toString();
+
+      this.buffer.push(stringData);
+
+      onOutput(stringData);
+    });
+
+    child.stderr.addListener("data", (data) => {
+      const stringData = data.toString();
+
+      this.buffer.push(stringData);
+
+      onOutput(stringData);
+    });
+
+    child.addListener("close", () => console.log("CLOSED TERMINAL"));
+    child.addListener("disconnect", () => console.log("DISCONNECT TERMINAL"));
+    child.addListener("error", () => console.log("ERROR TERMINAL"));
+    child.addListener("message", () => console.log("MESSAGE TERMINAL"));
+
+    child.addListener("exit", onClose);
+  }
+  sendInput(input: string) {
+    this.child.stdin.write(input);
+  }
+  detach() {
+    this.onDetach();
+  }
+  dispose() {
+    this.child.stdin.destroy();
+    this.child.stdout.destroy();
+    this.child.stderr.destroy();
+    this.child.kill("SIGKILL");
+  }
+}
 
 export class AssistantTools {
   private onToolCallEventEmitter = new EventEmitter<ToolCallEvent>();
@@ -68,7 +143,7 @@ export class AssistantTools {
   }>();
   onTerminalOutput = this.onTerminalOutputEmitter.event;
 
-  private terminals: Record<string, cp.ChildProcessWithoutNullStreams> = {};
+  private terminals: Record<string, Terminal> = {};
 
   constructor(private workspacePath: string, private embedder: Embedder) {}
 
@@ -77,7 +152,7 @@ export class AssistantTools {
       return;
     }
 
-    this.terminals[actionId].stdin.write(input);
+    this.terminals[actionId].sendInput(input);
   }
   handleKillTerminal(actionId: string) {
     if (!this.terminals[actionId]) {
@@ -86,12 +161,16 @@ export class AssistantTools {
 
     console.log("Killing terminal");
 
-    this.terminals[actionId].stdin.destroy();
-    this.terminals[actionId].stdout.destroy();
-    this.terminals[actionId].stderr.destroy();
-    this.terminals[actionId].kill("SIGKILL");
+    // Closes it, which will remove it
+    this.terminals[actionId].dispose();
   }
-  handleKeepTerminal(actionId: string) {}
+  handleKeepTerminal(actionId: string) {
+    if (!this.terminals[actionId]) {
+      return;
+    }
+
+    this.terminals[actionId].detach();
+  }
   handleToolCalls(
     toolCalls: OpenAI.Beta.Threads.Runs.RequiredActionFunctionToolCall[]
   ) {
@@ -126,9 +205,11 @@ export class AssistantTools {
           } else if (isToolCall("delete_file_or_directory")) {
             output = await this.deleteFileOrDirectory(id, args.path);
           } else if (isToolCall("run_terminal_command")) {
-            output = await this.runTerminalCommand(id, args.command);
+            output = await this.runTerminalCommand(id, args.command, args.args);
           } else if (isToolCall("search_file_paths")) {
             output = await this.searchFilePaths(id, args.path);
+          } else if (isToolCall("read_terminal_outputs")) {
+            output = await this.readTerminalOutputs(id);
           } else {
             throw new Error("Not implemented " + toolCall.function.name);
           }
@@ -362,80 +443,67 @@ export class AssistantTools {
       throw error;
     }
   }
-  private async runTerminalCommand(id: string, command: string) {
-    const buffer: string[] = [];
-
-    this.onToolCallEventEmitter.fire({
-      id,
-      buffer,
-      status: "pending",
-      type: "run_terminal_command",
-      command,
-    });
-
+  private async runTerminalCommand(
+    id: string,
+    command: string,
+    args: string[]
+  ) {
     return new Promise<{ exitCode: number; output: string }>((resolve) => {
-      const [cmd, ...args] = command.split(" ");
+      const terminal = new Terminal({
+        id,
+        command,
+        args,
+        workspacePath: this.workspacePath,
+        onClose: (exitCode) => {
+          delete this.terminals[id];
 
-      const child = cp.spawn(cmd, args, {
-        cwd: this.workspacePath,
-      });
+          if (exitCode === 1) {
+            this.onToolCallEventEmitter.fire({
+              id,
+              status: "rejected",
+              buffer: terminal.buffer,
+              error: "Exited with code 1",
+              type: "run_terminal_command",
+              command,
+            });
+          } else {
+            this.onToolCallEventEmitter.fire({
+              id,
+              status: "resolved",
+              buffer: terminal.buffer,
+              type: "run_terminal_command",
+              command,
+            });
+          }
 
-      this.terminals[id] = child;
-
-      child.stdout.addListener("data", (data) => {
-        const stringData = data.toString();
-
-        buffer.push(stringData);
-
-        this.onTerminalOutputEmitter.fire({
-          id,
-          data: stringData,
-        });
-      });
-
-      child.stderr.addListener("data", (data) => {
-        const stringData = data.toString();
-
-        buffer.push(stringData);
-
-        this.onTerminalOutputEmitter.fire({
-          id,
-          data: stringData,
-        });
-      });
-
-      child.addListener("close", () => console.log("CLOSED TERMINAL"));
-      child.addListener("disconnect", () => console.log("DISCONNECT TERMINAL"));
-      child.addListener("error", () => console.log("ERROR TERMINAL"));
-      child.addListener("message", () => console.log("MESSAGE TERMINAL"));
-
-      child.addListener("exit", (exitCode) => {
-        delete this.terminals[id];
-
-        console.log("EXIT CODE", exitCode);
-
-        if (exitCode === 1) {
-          this.onToolCallEventEmitter.fire({
-            id,
-            status: "rejected",
-            buffer,
-            error: "Exited with code 1",
-            type: "run_terminal_command",
-            command,
-          });
-
-          resolve({ exitCode: 1, output: buffer.join() });
-        } else {
+          resolve({ exitCode: exitCode || 0, output: terminal.buffer.join() });
+        },
+        onDetach: () => {
           this.onToolCallEventEmitter.fire({
             id,
             status: "resolved",
-            buffer,
+            buffer: terminal.buffer,
             type: "run_terminal_command",
             command,
           });
+          resolve({ exitCode: 1, output: terminal.buffer.join() });
+        },
+        onOutput: (data) => {
+          this.onTerminalOutputEmitter.fire({
+            id,
+            data,
+          });
+        },
+      });
 
-          resolve({ exitCode: 0, output: buffer.join() });
-        }
+      this.terminals[id] = terminal;
+
+      this.onToolCallEventEmitter.fire({
+        id,
+        buffer: terminal.buffer,
+        status: "pending",
+        type: "run_terminal_command",
+        command,
       });
     });
   }
@@ -459,7 +527,6 @@ export class AssistantTools {
 
       this.onToolCallEventEmitter.fire({
         id,
-
         status: "resolved",
         type: "search_file_paths",
         path,
@@ -478,6 +545,38 @@ export class AssistantTools {
       throw error;
     }
   }
+  private readTerminalOutputs(id: string) {
+    this.onToolCallEventEmitter.fire({
+      id,
+      status: "pending",
+      type: "read_terminal_outputs",
+    });
+
+    try {
+      const result = Object.values(this.terminals).map((terminal) => ({
+        command: terminal.command,
+        output: terminal.buffer.join(),
+      }));
+
+      this.onToolCallEventEmitter.fire({
+        id,
+        status: "resolved",
+        type: "read_terminal_outputs",
+      });
+
+      return result;
+    } catch (error) {
+      this.onToolCallEventEmitter.fire({
+        id,
+        error: String(error),
+        status: "rejected",
+        type: "read_terminal_outputs",
+      });
+
+      throw error;
+    }
+  }
+
   dispose() {
     this.onToolCallEventEmitter.dispose();
     Object.keys(this.terminals).forEach((actionId) => {

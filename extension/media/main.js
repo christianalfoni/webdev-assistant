@@ -40886,7 +40886,8 @@ WARNING: This link could potentially be dangerous`)) {
   function TerminalCommand({
     action,
     onInput,
-    onExit
+    onExit,
+    onKeep
   }) {
     const terminalContainerRef = (0, import_react3.useRef)(null);
     const termRef = (0, import_react3.useRef)(null);
@@ -40923,13 +40924,17 @@ WARNING: This link could potentially be dangerous`)) {
         action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CogIcon, {}) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CheckIcon, {})
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { ref: terminalContainerRef }),
-      action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { className: "action-exit-button", onClick: onExit, children: "Exit" }) : null
+      action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-buttons", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { onClick: onKeep, children: "Keep" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { onClick: onExit, children: "Exit" })
+      ] }) : null
     ] });
   }
   function ChatMessage({
     message,
     onTerminalInput,
-    onTerminalExit
+    onTerminalExit,
+    onKeepTerminal
   }) {
     const isAssistantAwaitingActions = message.role === "assistant" && message.actions.find((action) => action.status === "pending");
     return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "chat-message-wrapper", children: [
@@ -40972,13 +40977,21 @@ WARNING: This link could potentially be dangerous`)) {
                 action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CogIcon, {}) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CheckIcon, {})
               ] }) });
             }
+            case "read_terminal_outputs": {
+              return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "action-wrapper", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-header", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CodeIcon, {}),
+                "Reading terminal outputs",
+                action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CogIcon, {}) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CheckIcon, {})
+              ] }) });
+            }
             case "run_terminal_command": {
               return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                 TerminalCommand,
                 {
                   action,
                   onInput: (input) => onTerminalInput(action.id, input),
-                  onExit: () => onTerminalExit(action.id)
+                  onExit: () => onTerminalExit(action.id),
+                  onKeep: () => onKeepTerminal(action.id)
                 }
               );
             }
@@ -40999,7 +41012,8 @@ WARNING: This link could potentially be dangerous`)) {
             case "search_file_paths": {
               return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "action-wrapper", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-header", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CodeIcon, {}),
-                "Searching file paths for " + action.path
+                "Searching file paths for " + action.path,
+                action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CogIcon, {}) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CheckIcon, {})
               ] }) });
             }
           }
@@ -41054,6 +41068,12 @@ WARNING: This link could potentially be dangerous`)) {
           onTerminalExit: (actionId) => {
             postChatPanelMessage({
               type: "terminal_kill",
+              actionId
+            });
+          },
+          onKeepTerminal: (actionId) => {
+            postChatPanelMessage({
+              type: "terminal_keep",
               actionId
             });
           }

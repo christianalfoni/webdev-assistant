@@ -199,7 +199,7 @@ export class Embedder {
         const type = getIndexTypeFromFilepath(filepath);
         console.log("Adding index item " + filepath);
         this.queue.add(() =>
-          this.index.insertItem({
+          this.index.upsertItem({
             id: filepath,
             vector,
             metadata: { filepath, type },

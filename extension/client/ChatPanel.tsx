@@ -56,6 +56,12 @@ export function ChatPanel() {
               actionId,
             });
           }}
+          onKeepTerminal={(actionId: string) => {
+            postChatPanelMessage({
+              type: "terminal_keep",
+              actionId,
+            });
+          }}
         />
       ))}
       <NewChatMessage
