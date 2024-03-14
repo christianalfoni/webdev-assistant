@@ -83,9 +83,11 @@ function CodeIcon() {
 function TerminalCommand({
   action,
   onInput,
+  onExit,
 }: {
   action: AssistantAction & { type: "run_terminal_command" };
   onInput: (input: string) => void;
+  onExit: () => void;
 }) {
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -122,6 +124,11 @@ function TerminalCommand({
         {action.status === "pending" ? <CogIcon /> : <CheckIcon />}
       </div>
       <div ref={terminalContainerRef} />
+      {action.status === "pending" ? (
+        <button className="action-exit-button" onClick={onExit}>
+          Exit
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -129,10 +136,16 @@ function TerminalCommand({
 export function ChatMessage({
   message,
   onTerminalInput,
+  onTerminalExit,
 }: {
   message: ChatMessage;
   onTerminalInput: (actionId: string, input: string) => void;
+  onTerminalExit: (actionId: string) => void;
 }) {
+  const isAssistantAwaitingActions =
+    message.role === "assistant" &&
+    message.actions.find((action) => action.status === "pending");
+
   return (
     <div className="chat-message-wrapper">
       <div className="chat-message-avatar">
@@ -217,6 +230,7 @@ export function ChatMessage({
                     <TerminalCommand
                       action={action}
                       onInput={(input) => onTerminalInput(action.id, input)}
+                      onExit={() => onTerminalExit(action.id)}
                     />
                   );
                 }
@@ -264,7 +278,13 @@ export function ChatMessage({
             })}
           </ul>
         ) : null}
-        {message.text ? <Markdown>{message.text}</Markdown> : "Thinking..."}
+        {message.text ? (
+          <Markdown>{message.text}</Markdown>
+        ) : isAssistantAwaitingActions ? (
+          "Waiting..."
+        ) : (
+          "Thinking..."
+        )}
       </div>
     </div>
   );

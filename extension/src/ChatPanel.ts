@@ -214,6 +214,11 @@ class ChatPanel {
       }
       case "terminal_input": {
         this.assistant.handleTerminalInput(message.actionId, message.input);
+        break;
+      }
+      case "terminal_kill": {
+        this.assistant.handleKillTerminal(message.actionId);
+        break;
       }
     }
   }

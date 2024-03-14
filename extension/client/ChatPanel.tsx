@@ -73,6 +73,12 @@ export function ChatPanel() {
               input,
             });
           }}
+          onTerminalExit={(actionId: string) => {
+            postMessage({
+              type: "terminal_kill",
+              actionId,
+            });
+          }}
         />
       ))}
       <NewChatMessage

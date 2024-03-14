@@ -92,6 +92,9 @@ export class Assistant implements Disposable {
   handleTerminalInput(actionId: string, input: string) {
     this.tools.handleTerminalInput(actionId, input);
   }
+  handleKillTerminal(actionId: string) {
+    this.tools.handleKillTerminal(actionId);
+  }
   dispose() {
     this.embedder.dispose();
     this.tools.dispose();

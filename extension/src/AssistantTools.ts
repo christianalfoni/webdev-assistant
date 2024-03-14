@@ -67,6 +67,18 @@ export class AssistantTools {
 
     this.terminals[actionId].stdin.write(input);
   }
+  handleKillTerminal(actionId: string) {
+    if (!this.terminals[actionId]) {
+      return;
+    }
+
+    console.log("Killing terminal");
+
+    this.terminals[actionId].stdin.destroy();
+    this.terminals[actionId].stdout.destroy();
+    this.terminals[actionId].stderr.destroy();
+    this.terminals[actionId].kill("SIGKILL");
+  }
   handleToolCalls(
     toolCalls: OpenAI.Beta.Threads.Runs.RequiredActionFunctionToolCall[]
   ) {
@@ -101,7 +113,7 @@ export class AssistantTools {
           } else if (isToolCall("delete_file")) {
             output = await this.deleteFile(id, args.path);
           } else if (isToolCall("run_terminal_command")) {
-            output = await this.runTerminalCommand(id, args.command, args.args);
+            output = await this.runTerminalCommand(id, args.command);
           } else if (isToolCall("search_file_paths")) {
             output = await this.searchFilePaths(id, args.path);
           } else {
@@ -243,7 +255,7 @@ export class AssistantTools {
         content,
       });
 
-      return "ok";
+      return "success";
     } catch (error) {
       this.onToolCallEventEmitter.fire({
         id,
@@ -315,7 +327,7 @@ export class AssistantTools {
         path: relativePath,
       });
 
-      return "ok";
+      return "success";
     } catch (error) {
       this.onToolCallEventEmitter.fire({
         id,
@@ -328,25 +340,20 @@ export class AssistantTools {
       throw error;
     }
   }
-  private async runTerminalCommand(
-    id: string,
-    command: string,
-    args: string[]
-  ) {
-    const commandWithArgs = command + " " + args.join(" ");
-
+  private async runTerminalCommand(id: string, command: string) {
     this.onToolCallEventEmitter.fire({
       id,
       output: "",
       status: "pending",
       type: "run_terminal_command",
-      command: commandWithArgs,
+      command,
     });
 
     return new Promise<{ exitCode: number; output: string }>((resolve) => {
-      const child = cp.spawn(command, args, {
+      const [cmd, ...args] = command.split(" ");
+
+      const child = cp.spawn(cmd, args, {
         cwd: this.workspacePath,
-        shell: true,
       });
 
       this.terminals[id] = child;
@@ -361,7 +368,7 @@ export class AssistantTools {
           output: outBuffer,
           status: "pending",
           type: "run_terminal_command",
-          command: commandWithArgs,
+          command,
         });
       });
 
@@ -369,28 +376,36 @@ export class AssistantTools {
         errBuffer += buffer;
       });
 
-      child.addListener("close", (exitCode) => {
+      child.addListener("close", () => console.log("CLOSED TERMINAL"));
+      child.addListener("disconnect", () => console.log("DISCONNECT TERMINAL"));
+      child.addListener("error", () => console.log("ERROR TERMINAL"));
+      child.addListener("message", () => console.log("MESSAGE TERMINAL"));
+
+      child.addListener("exit", (exitCode) => {
         delete this.terminals[id];
 
-        if (exitCode === 0) {
-          this.onToolCallEventEmitter.fire({
-            id,
-            status: "resolved",
-            output: outBuffer,
-            type: "run_terminal_command",
-            command: commandWithArgs,
-          });
-          resolve({ exitCode: 0, output: outBuffer });
-        } else {
+        console.log("EXIT CODE", exitCode);
+
+        if (exitCode === 1 || errBuffer) {
           this.onToolCallEventEmitter.fire({
             id,
             status: "rejected",
             output: errBuffer,
             type: "run_terminal_command",
-            command: commandWithArgs,
+            command,
           });
 
           resolve({ exitCode: 1, output: errBuffer });
+        } else {
+          this.onToolCallEventEmitter.fire({
+            id,
+            status: "resolved",
+            output: outBuffer,
+            type: "run_terminal_command",
+            command,
+          });
+
+          resolve({ exitCode: 0, output: outBuffer });
         }
       });
     });
