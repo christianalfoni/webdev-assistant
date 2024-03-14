@@ -1,42 +1,23 @@
 import { useEffect, useState } from "react";
-import {
-  ChatPanelClientMessage,
-  ChatPanelClientState,
-  ChatPanelMessage,
-} from "../src/types";
+import { ChatPanelClientState } from "../src/types";
 import { NewChatMessage } from "./NewChatMessage";
 import { ChatMessage } from "./ChatMessage";
-
-const vscode = acquireVsCodeApi();
-
-function postMessage(message: ChatPanelClientMessage) {
-  vscode.postMessage(message);
-}
+import { postChatPanelMessage, useChatPanelMessages } from "./messaging";
 
 export function ChatPanel() {
   const [state, setState] = useState<ChatPanelClientState | undefined>();
 
   useEffect(() => {
-    const onMessage = (event: MessageEvent<ChatPanelMessage>) => {
-      const message = event.data;
-
-      switch (message.type) {
-        case "state_update":
-          setState(message.state);
-          break;
-      }
-    };
-
-    window.addEventListener("message", onMessage);
-
-    postMessage({
+    postChatPanelMessage({
       type: "state_request",
     });
-
-    return () => {
-      window.removeEventListener("message", onMessage);
-    };
   }, []);
+
+  useChatPanelMessages((message) => {
+    if (message.type === "state_update") {
+      setState(message.state);
+    }
+  });
 
   if (!state) {
     return null;
@@ -51,10 +32,6 @@ export function ChatPanel() {
     return <h1>Missing config!</h1>;
   }
 
-  if (state.status === "LOADING_EMBEDDINGS") {
-    return <h1>Loading embeddings!</h1>;
-  }
-
   if (state.status === "ERROR") {
     return <h1>Error! ${state.error}</h1>;
   }
@@ -67,14 +44,14 @@ export function ChatPanel() {
           key={index}
           message={message}
           onTerminalInput={(actionId: string, input: string) => {
-            postMessage({
+            postChatPanelMessage({
               type: "terminal_input",
               actionId,
               input,
             });
           }}
           onTerminalExit={(actionId: string) => {
-            postMessage({
+            postChatPanelMessage({
               type: "terminal_kill",
               actionId,
             });
@@ -83,11 +60,12 @@ export function ChatPanel() {
       ))}
       <NewChatMessage
         onSendMessage={(text) => {
-          postMessage({
+          postChatPanelMessage({
             type: "assistant_request",
             text,
           });
         }}
+        embedderState={state.embedderState}
       />
     </div>
   );

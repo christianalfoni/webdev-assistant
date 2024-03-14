@@ -45,6 +45,7 @@ body,
 }
 
 .chat-message-wrapper {
+  position: relative;
   display: flex;
   margin: 20px 0;
 }
@@ -95,4 +96,11 @@ body,
   bottom: 10px;
   right: 10px;
   width: 100px;
+}
+
+.embedder-state {
+  position: absolute;
+  bottom: 10px;
+  right: 20px;
+  font-size: 11px;
 }

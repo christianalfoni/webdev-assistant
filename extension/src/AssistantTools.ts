@@ -12,49 +12,61 @@ import { glob } from "glob";
 
 export type ToolCallEventType = ToolCallEvent["type"];
 
-export type ToolCallEvent = {
-  status: "pending" | "rejected" | "resolved";
-  output: string;
-  id: string;
-} & (
+export type ToolCallEvent = { id: string } & (
   | {
-      type: "search_code_embeddings";
-      query: string;
+      status: "pending" | "resolved";
     }
   | {
-      type: "search_doc_embeddings";
-      query: string;
+      status: "rejected";
+      error: string;
     }
-  | {
-      type: "read_file";
-      path: string;
-    }
-  | {
-      type: "write_file";
-      path: string;
-      content: string;
-    }
-  | {
-      type: "read_directory";
-      path: string;
-    }
-  | {
-      type: "delete_file";
-      path: string;
-    }
-  | {
-      type: "run_terminal_command";
-      command: string;
-    }
-  | {
-      type: "search_file_paths";
-      path: string;
-    }
-);
+) &
+  (
+    | {
+        type: "search_code_embeddings";
+        query: string;
+      }
+    | {
+        type: "search_doc_embeddings";
+        query: string;
+      }
+    | {
+        type: "read_file";
+        path: string;
+      }
+    | {
+        type: "write_file";
+        path: string;
+        content: string;
+      }
+    | {
+        type: "read_directory";
+        path: string;
+      }
+    | {
+        type: "delete_file_or_directory";
+        path: string;
+      }
+    | {
+        type: "run_terminal_command";
+        command: string;
+        buffer: string[];
+      }
+    | {
+        type: "search_file_paths";
+        path: string;
+      }
+  );
 
 export class AssistantTools {
   private onToolCallEventEmitter = new EventEmitter<ToolCallEvent>();
   onToolCallEvent = this.onToolCallEventEmitter.event;
+
+  private onTerminalOutputEmitter = new EventEmitter<{
+    id: string;
+    data: string;
+  }>();
+  onTerminalOutput = this.onTerminalOutputEmitter.event;
 
   private terminals: Record<string, cp.ChildProcessWithoutNullStreams> = {};
 
@@ -79,6 +91,7 @@ export class AssistantTools {
     this.terminals[actionId].stderr.destroy();
     this.terminals[actionId].kill("SIGKILL");
   }
+  handleKeepTerminal(actionId: string) {}
   handleToolCalls(
     toolCalls: OpenAI.Beta.Threads.Runs.RequiredActionFunctionToolCall[]
   ) {
@@ -110,8 +123,8 @@ export class AssistantTools {
             output = await this.writeFile(id, args.path, args.content);
           } else if (isToolCall("read_directory")) {
             output = await this.readDirectory(id, args.path);
-          } else if (isToolCall("delete_file")) {
-            output = await this.deleteFile(id, args.path);
+          } else if (isToolCall("delete_file_or_directory")) {
+            output = await this.deleteFileOrDirectory(id, args.path);
           } else if (isToolCall("run_terminal_command")) {
             output = await this.runTerminalCommand(id, args.command);
           } else if (isToolCall("search_file_paths")) {
@@ -134,7 +147,6 @@ export class AssistantTools {
     this.onToolCallEventEmitter.fire({
       id,
       status: "pending",
-      output: "",
       type: "search_code_embeddings",
       query,
     });
@@ -145,7 +157,6 @@ export class AssistantTools {
       this.onToolCallEventEmitter.fire({
         id,
         status: "resolved",
-        output: "",
         type: "search_code_embeddings",
         query,
       });
@@ -155,7 +166,7 @@ export class AssistantTools {
       this.onToolCallEventEmitter.fire({
         id,
         status: "rejected",
-        output: String(error),
+        error: String(error),
         type: "search_code_embeddings",
         query,
       });
@@ -167,7 +178,7 @@ export class AssistantTools {
     this.onToolCallEventEmitter.fire({
       id,
       status: "pending",
-      output: "",
+
       type: "search_doc_embeddings",
       query,
     });
@@ -177,7 +188,7 @@ export class AssistantTools {
       this.onToolCallEventEmitter.fire({
         id,
         status: "resolved",
-        output: "",
+
         type: "search_doc_embeddings",
         query,
       });
@@ -186,7 +197,7 @@ export class AssistantTools {
       this.onToolCallEventEmitter.fire({
         id,
         status: "rejected",
-        output: String(error),
+        error: String(error),
         type: "search_doc_embeddings",
         query,
       });
@@ -196,11 +207,13 @@ export class AssistantTools {
   }
   private async readFile(id: string, path: string) {
     const normalizedPath = normalizePath(this.workspacePath, path);
-    const relativePath = normalizedPath.substring(this.workspacePath.length);
+    const relativePath = normalizedPath.substring(
+      this.workspacePath.length + 1
+    );
 
     this.onToolCallEventEmitter.fire({
       id,
-      output: "",
+
       status: "pending",
       type: "read_file",
       path: relativePath,
@@ -211,7 +224,7 @@ export class AssistantTools {
 
       this.onToolCallEventEmitter.fire({
         id,
-        output: "",
+
         status: "resolved",
         type: "read_file",
         path: relativePath,
@@ -221,7 +234,7 @@ export class AssistantTools {
     } catch (error) {
       this.onToolCallEventEmitter.fire({
         id,
-        output: String(error),
+        error: String(error),
         status: "rejected",
         type: "read_file",
         path: relativePath,
@@ -232,11 +245,13 @@ export class AssistantTools {
   }
   private async writeFile(id: string, path: string, content: string) {
     const normalizedPath = normalizePath(this.workspacePath, path);
-    const relativePath = normalizedPath.substring(this.workspacePath.length);
+    const relativePath = normalizedPath.substring(
+      this.workspacePath.length + 1
+    );
 
     this.onToolCallEventEmitter.fire({
       id,
-      output: "",
+
       status: "pending",
       type: "write_file",
       path: relativePath,
@@ -248,7 +263,7 @@ export class AssistantTools {
 
       this.onToolCallEventEmitter.fire({
         id,
-        output: "",
+
         status: "resolved",
         type: "write_file",
         path: relativePath,
@@ -259,7 +274,7 @@ export class AssistantTools {
     } catch (error) {
       this.onToolCallEventEmitter.fire({
         id,
-        output: String(error),
+        error: String(error),
         status: "rejected",
         type: "write_file",
         path: relativePath,
@@ -270,11 +285,13 @@ export class AssistantTools {
   }
   private readDirectory(id: string, path: string) {
     const normalizedPath = normalizePath(this.workspacePath, path);
-    const relativePath = normalizedPath.substring(this.workspacePath.length);
+    const relativePath = normalizedPath.substring(
+      this.workspacePath.length + 1
+    );
 
     this.onToolCallEventEmitter.fire({
       id,
-      output: "",
+
       status: "pending",
       type: "read_directory",
       path: relativePath,
@@ -285,7 +302,7 @@ export class AssistantTools {
 
       this.onToolCallEventEmitter.fire({
         id,
-        output: "",
+
         status: "resolved",
         type: "read_directory",
         path: relativePath,
@@ -295,7 +312,7 @@ export class AssistantTools {
     } catch (error) {
       this.onToolCallEventEmitter.fire({
         id,
-        output: String(error),
+        error: String(error),
         status: "rejected",
         type: "read_directory",
         path: relativePath,
@@ -304,26 +321,31 @@ export class AssistantTools {
       throw error;
     }
   }
-  private async deleteFile(id: string, path: string) {
+  private async deleteFileOrDirectory(id: string, path: string) {
     const normalizedPath = normalizePath(this.workspacePath, path);
-    const relativePath = normalizedPath.substring(this.workspacePath.length);
+    const relativePath = normalizedPath.substring(
+      this.workspacePath.length + 1
+    );
 
     this.onToolCallEventEmitter.fire({
       id,
-      output: "",
+
       status: "pending",
-      type: "delete_file",
+      type: "delete_file_or_directory",
       path: relativePath,
     });
 
     try {
-      await fs.rm(normalizedPath);
+      await fs.rm(normalizedPath, {
+        force: true,
+        recursive: true,
+      });
 
       this.onToolCallEventEmitter.fire({
         id,
-        output: "",
+
         status: "resolved",
-        type: "delete_file",
+        type: "delete_file_or_directory",
         path: relativePath,
       });
 
@@ -331,9 +353,9 @@ export class AssistantTools {
     } catch (error) {
       this.onToolCallEventEmitter.fire({
         id,
-        output: String(error),
+        error: String(error),
         status: "rejected",
-        type: "delete_file",
+        type: "delete_file_or_directory",
         path: relativePath,
       });
 
@@ -341,9 +363,11 @@ export class AssistantTools {
     }
   }
   private async runTerminalCommand(id: string, command: string) {
+    const buffer: string[] = [];
+
     this.onToolCallEventEmitter.fire({
       id,
-      output: "",
+      buffer,
       status: "pending",
       type: "run_terminal_command",
       command,
@@ -358,22 +382,26 @@ export class AssistantTools {
 
       this.terminals[id] = child;
 
-      let outBuffer = "";
-      let errBuffer = "";
+      child.stdout.addListener("data", (data) => {
+        const stringData = data.toString();
 
-      child.stdout.addListener("data", (buffer) => {
-        outBuffer += buffer;
-        this.onToolCallEventEmitter.fire({
+        buffer.push(stringData);
+
+        this.onTerminalOutputEmitter.fire({
           id,
-          output: outBuffer,
-          status: "pending",
-          type: "run_terminal_command",
-          command,
+          data: stringData,
         });
       });
 
-      child.stderr.addListener("data", (buffer) => {
-        errBuffer += buffer;
+      child.stderr.addListener("data", (data) => {
+        const stringData = data.toString();
+
+        buffer.push(stringData);
+
+        this.onTerminalOutputEmitter.fire({
+          id,
+          data: stringData,
+        });
       });
 
       child.addListener("close", () => console.log("CLOSED TERMINAL"));
@@ -386,26 +414,27 @@ export class AssistantTools {
 
         console.log("EXIT CODE", exitCode);
 
-        if (exitCode === 1 || errBuffer) {
+        if (exitCode === 1) {
           this.onToolCallEventEmitter.fire({
             id,
             status: "rejected",
-            output: errBuffer,
+            buffer,
+            error: "Exited with code 1",
             type: "run_terminal_command",
             command,
           });
 
-          resolve({ exitCode: 1, output: errBuffer });
+          resolve({ exitCode: 1, output: buffer.join() });
         } else {
           this.onToolCallEventEmitter.fire({
             id,
             status: "resolved",
-            output: outBuffer,
+            buffer,
             type: "run_terminal_command",
             command,
           });
 
-          resolve({ exitCode: 0, output: outBuffer });
+          resolve({ exitCode: 0, output: buffer.join() });
         }
       });
     });
@@ -414,7 +443,7 @@ export class AssistantTools {
   private async searchFilePaths(id: string, path: string) {
     this.onToolCallEventEmitter.fire({
       id,
-      output: "",
+
       status: "pending",
       type: "search_file_paths",
       path,
@@ -430,7 +459,7 @@ export class AssistantTools {
 
       this.onToolCallEventEmitter.fire({
         id,
-        output: "",
+
         status: "resolved",
         type: "search_file_paths",
         path,
@@ -440,7 +469,7 @@ export class AssistantTools {
     } catch (error) {
       this.onToolCallEventEmitter.fire({
         id,
-        output: String(error),
+        error: String(error),
         status: "rejected",
         type: "search_file_paths",
         path,
@@ -451,5 +480,8 @@ export class AssistantTools {
   }
   dispose() {
     this.onToolCallEventEmitter.dispose();
+    Object.keys(this.terminals).forEach((actionId) => {
+      this.handleKillTerminal(actionId);
+    });
   }
 }

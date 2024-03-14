@@ -3,6 +3,7 @@ import type { AssistantAction, ChatMessage } from "../src/types";
 // @ts-ignore
 import Markdown from "react-markdown";
 import { Terminal } from "xterm";
+import { useChatPanelMessages } from "./messaging";
 
 function CogIcon() {
   return (
@@ -91,13 +92,13 @@ function TerminalCommand({
 }) {
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
-  const bufferLengthRef = useRef(0);
 
   useEffect(() => {
     if (terminalContainerRef.current) {
       const term = new Terminal({
         cols: 80,
         rows: 10,
+        convertEol: true,
       });
       termRef.current = term;
       term.open(terminalContainerRef.current);
@@ -105,17 +106,24 @@ function TerminalCommand({
     }
   }, []);
 
-  useEffect(() => {
-    if (action.output && termRef.current) {
-      const lines = action.output.split(/(\r?\n)/g);
-
-      for (let x = bufferLengthRef.current; x < lines.length; x++) {
-        termRef.current.write(lines[x] + "\r");
-      }
-
-      bufferLengthRef.current = lines.length - 1;
+  useChatPanelMessages((message) => {
+    if (
+      message.type === "terminal_output" &&
+      action.id === message.id &&
+      termRef.current
+    ) {
+      termRef.current.write(message.data);
     }
-  }, [action.output]);
+  });
+
+  useEffect(() => {
+    if (termRef.current) {
+      const term = termRef.current;
+      action.buffer.forEach((data) => {
+        term.write(data);
+      });
+    }
+  }, []);
 
   return (
     <div className="action-wrapper">
@@ -180,12 +188,12 @@ export function ChatMessage({
                     </div>
                   );
                 }
-                case "delete_file": {
+                case "delete_file_or_directory": {
                   return (
                     <div className="action-wrapper">
                       <div className="action-header">
                         <CodeIcon />
-                        {"Deleting file " + action.path}
+                        {"Deleting " + action.path}
                         {action.status === "pending" ? (
                           <CogIcon />
                         ) : (

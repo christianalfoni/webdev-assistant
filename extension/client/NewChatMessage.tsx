@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { EmbedderState } from "../src/Embedder";
 
 type Props = {
   onSendMessage: (text: string) => void;
+  embedderState: EmbedderState;
 };
 
-export function NewChatMessage({ onSendMessage }: Props) {
+export function NewChatMessage({ onSendMessage, embedderState }: Props) {
   const [text, setText] = useState("");
 
   return (
@@ -27,6 +29,13 @@ export function NewChatMessage({ onSendMessage }: Props) {
           }
         }}
       ></textarea>
+      <div className="embedder-state">
+        {embedderState === "CREATING"
+          ? "Creating embeddings..."
+          : embedderState === "UPDATING"
+          ? "Updating embeddings..."
+          : "Embeddings ready!"}
+      </div>
     </div>
   );
 }

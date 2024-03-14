@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { Assistant } from "./Assistant";
-import { Embedder } from "./Embedder";
+import { Embedder, EmbedderState } from "./Embedder";
 import { getAssistantId, getOpenAiApiKey } from "./config";
 
 import {
@@ -101,6 +101,14 @@ class ChatPanel {
     return this._state.assistant;
   }
 
+  get embedder() {
+    if (this._state.status !== "READY") {
+      throw new Error("The panel is not in a READY state");
+    }
+
+    return this._state.embedder;
+  }
+
   set state(state: ChatPanelState) {
     console.log("STATE", state);
     this._state = state;
@@ -110,12 +118,6 @@ class ChatPanel {
         this.clientState = {
           status: "ERROR",
           error: state.error,
-        };
-        break;
-      }
-      case "LOADING_EMBEDDINGS": {
-        this.clientState = {
-          status: "LOADING_EMBEDDINGS",
         };
         break;
       }
@@ -135,6 +137,7 @@ class ChatPanel {
         this.clientState = {
           status: "READY",
           messages: [],
+          embedderState: this.embedder.state,
         };
         break;
       }
@@ -210,6 +213,7 @@ class ChatPanel {
           type: "state_update",
           state: this.clientState,
         });
+
         break;
       }
       case "terminal_input": {
@@ -221,6 +225,13 @@ class ChatPanel {
         break;
       }
     }
+  }
+
+  private handleEmbedderStateChange(state: EmbedderState) {
+    this.updateClientReadyState((current) => ({
+      ...current,
+      embedderState: state,
+    }));
   }
 
   private handleAssistantMessage(message: string) {
@@ -249,6 +260,14 @@ class ChatPanel {
 
   private handleAssistantRunUpdate(run: OpenAI.Beta.Threads.RunStatus) {
     // Can be used to show the state of the conversation
+  }
+
+  private handleTerminalOutput({ id, data }: { id: string; data: string }) {
+    this.sendMessageToClient({
+      type: "terminal_output",
+      id,
+      data,
+    });
   }
 
   private handleAssistantToolCallEvent(toolCallEvent: ToolCallEvent) {
@@ -317,16 +336,7 @@ class ChatPanel {
       this.state.path !== workspacePath
     ) {
       this.state.assistant.dispose();
-    }
-
-    // We might change during the loading of the embedder, in this case
-    // we wait until it resolves and then dispose of it
-    if (
-      this.state &&
-      this.state.status === "LOADING_EMBEDDINGS" &&
-      this.state.path !== workspacePath
-    ) {
-      this.state.embedder.then((embedder) => embedder.dispose());
+      this.state.embedder.dispose();
     }
 
     if (!workspacePath) {
@@ -348,8 +358,7 @@ class ChatPanel {
     // If we somehow load the same workspace, we do nothing
     if (
       this.state &&
-      (this.state.status === "READY" ||
-        this.state.status === "LOADING_EMBEDDINGS") &&
+      this.state.status === "READY" &&
       this.state.path === workspacePath
     ) {
       return this.state;
@@ -359,51 +368,31 @@ class ChatPanel {
       apiKey: openAiApiKey,
     });
 
-    const embedder = Embedder.load(workspacePath, openai);
+    const embedder = new Embedder(workspacePath, openai);
 
-    const pendingState: ChatPanelState = {
-      status: "LOADING_EMBEDDINGS",
+    const assistant = new Assistant({
+      workspacePath,
+      openai,
+      assistantId,
+      embedder,
+    });
+
+    assistant.onMessage((message) => this.handleAssistantMessage(message));
+    assistant.onRunStatusUpdate((run) => this.handleAssistantRunUpdate(run));
+    assistant.onToolCallEvent((toolCallEvent) =>
+      this.handleAssistantToolCallEvent(toolCallEvent)
+    );
+    assistant.onTerminalOutput((terminalOutput) => {
+      this.handleTerminalOutput(terminalOutput);
+    });
+    embedder.onStateChange((state) => this.handleEmbedderStateChange(state));
+
+    return {
+      status: "READY",
       path: workspacePath,
+      assistant,
       embedder,
     };
-
-    embedder
-      .then((embedder) => {
-        if (this.state === pendingState) {
-          const assistant = new Assistant({
-            workspacePath,
-            openai,
-            assistantId,
-            embedder,
-          });
-
-          this.state = {
-            status: "READY",
-            path: workspacePath,
-            assistant,
-          };
-
-          assistant.onMessage((message) =>
-            this.handleAssistantMessage(message)
-          );
-          assistant.onRunStatusUpdate((run) =>
-            this.handleAssistantRunUpdate(run)
-          );
-          assistant.onToolCallEvent((toolCallEvent) =>
-            this.handleAssistantToolCallEvent(toolCallEvent)
-          );
-        }
-      })
-      .catch((error) => {
-        if (this.state === pendingState) {
-          this.state = {
-            status: "ERROR",
-            error: String(error),
-          };
-        }
-      });
-
-    return pendingState;
   }
 
   private _update() {

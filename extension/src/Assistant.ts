@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import * as fs from "fs/promises";
-import { Disposable, EventEmitter } from "vscode";
+import { Disposable, Event, EventEmitter } from "vscode";
 import { AssistantThread } from "./AssistantThread";
 import { createMessageOutput } from "./utils";
 import { AssistantTools, ToolCallEvent } from "./AssistantTools";
@@ -11,10 +11,16 @@ type RunStatus = OpenAI.Beta.Threads.Run["status"];
 export class Assistant implements Disposable {
   private onRunStatusUpdateEmitter = new EventEmitter<RunStatus>();
   onRunStatusUpdate = this.onRunStatusUpdateEmitter.event;
+
   private onMessageEmitter = new EventEmitter<string>();
   onMessage = this.onMessageEmitter.event;
-  private onToolCallEventEmitter = new EventEmitter<ToolCallEvent>();
-  onToolCallEvent = this.onToolCallEventEmitter.event;
+
+  get onToolCallEvent() {
+    return this.tools.onToolCallEvent;
+  }
+  get onTerminalOutput() {
+    return this.tools.onTerminalOutput;
+  }
 
   private currentThread?: AssistantThread;
   private assistantId: string;
@@ -34,10 +40,6 @@ export class Assistant implements Disposable {
     this.openai = params.openai;
     this.embedder = params.embedder;
     this.tools = new AssistantTools(this.workspacePath, this.embedder);
-
-    this.tools.onToolCallEvent((toolCallevent) =>
-      this.onToolCallEventEmitter.fire(toolCallevent)
-    );
   }
 
   async createNewThread() {
@@ -85,7 +87,7 @@ export class Assistant implements Disposable {
       this.workspacePath
     } directory with the following files and folders in the root ${JSON.stringify(
       rootContent
-    )}. The project code has embeddings you can search to get more context.`;
+    )}. You have full access to the environment and can search embedded code and documentation.`;
 
     return this.currentThread.addMessage(content, instructions);
   }
@@ -100,6 +102,5 @@ export class Assistant implements Disposable {
     this.tools.dispose();
     this.onMessageEmitter.dispose();
     this.onRunStatusUpdateEmitter.dispose();
-    this.onToolCallEventEmitter.dispose();
   }
 }

@@ -1,5 +1,5 @@
 import { ToolCallEvent } from "./AssistantTools";
-import { Embedder } from "./Embedder";
+import { Embedder, EmbedderState } from "./Embedder";
 import { Assistant } from "./Assistant";
 
 export type ChatPanelState =
@@ -11,14 +11,10 @@ export type ChatPanelState =
       path: string;
     }
   | {
-      status: "LOADING_EMBEDDINGS";
-      path: string;
-      embedder: Promise<Embedder>;
-    }
-  | {
       status: "READY";
       path: string;
       assistant: Assistant;
+      embedder: Embedder;
     }
   | {
       status: "ERROR";
@@ -56,10 +52,16 @@ export type ChatPanelClientMessage =
       actionId: string;
     };
 
-export type ChatPanelMessage = {
-  type: "state_update";
-  state: ChatPanelClientState;
-};
+export type ChatPanelMessage =
+  | {
+      type: "state_update";
+      state: ChatPanelClientState;
+    }
+  | {
+      type: "terminal_output";
+      id: string;
+      data: string;
+    };
 
 export type ChatPanelClientState =
   | {
@@ -69,11 +71,9 @@ export type ChatPanelClientState =
       status: "MISSING_CONFIG";
     }
   | {
-      status: "LOADING_EMBEDDINGS";
-    }
-  | {
       status: "READY";
       messages: ChatMessage[];
+      embedderState: EmbedderState;
     }
   | {
       status: "ERROR";

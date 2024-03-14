@@ -61,6 +61,7 @@
   "dependencies": {
     "gitignore-globs": "^0.1.1",
     "glob": "^10.3.10",
+    "minimatch": "^9.0.3",
     "openai": "^4.28.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

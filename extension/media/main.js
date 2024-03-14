@@ -1101,7 +1101,7 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useRef(initialValue);
           }
-          function useEffect3(create2, deps) {
+          function useEffect4(create2, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useEffect(create2, deps);
           }
@@ -1883,7 +1883,7 @@
           exports.useContext = useContext;
           exports.useDebugValue = useDebugValue;
           exports.useDeferredValue = useDeferredValue;
-          exports.useEffect = useEffect3;
+          exports.useEffect = useEffect4;
           exports.useId = useId;
           exports.useImperativeHandle = useImperativeHandle;
           exports.useInsertionEffect = useInsertionEffect;
@@ -31170,12 +31170,12 @@ WARNING: This link could potentially be dangerous`)) {
   var import_client = __toESM(require_client());
 
   // client/ChatPanel.tsx
-  var import_react3 = __toESM(require_react());
+  var import_react4 = __toESM(require_react());
 
   // client/NewChatMessage.tsx
   var import_react = __toESM(require_react());
   var import_jsx_runtime = __toESM(require_jsx_runtime());
-  function NewChatMessage({ onSendMessage }) {
+  function NewChatMessage({ onSendMessage, embedderState }) {
     const [text5, setText] = (0, import_react.useState)("");
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "chat-message-wrapper", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "chat-message-avatar", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
@@ -31199,12 +31199,13 @@ WARNING: This link could potentially be dangerous`)) {
             }
           }
         }
-      )
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "embedder-state", children: embedderState === "CREATING" ? "Creating embeddings..." : embedderState === "UPDATING" ? "Updating embeddings..." : "Embeddings ready!" })
     ] });
   }
 
   // client/ChatMessage.tsx
-  var import_react2 = __toESM(require_react());
+  var import_react3 = __toESM(require_react());
 
   // node_modules/devlop/lib/default.js
   function ok() {
@@ -40776,6 +40777,27 @@ WARNING: This link could potentially be dangerous`)) {
 
   // client/ChatMessage.tsx
   var import_xterm = __toESM(require_xterm());
+
+  // client/messaging.ts
+  var import_react2 = __toESM(require_react());
+  var vscode = acquireVsCodeApi();
+  function postChatPanelMessage(message) {
+    vscode.postMessage(message);
+  }
+  function useChatPanelMessages(cb) {
+    (0, import_react2.useEffect)(() => {
+      const onMessage = (event) => {
+        const message = event.data;
+        cb(message);
+      };
+      window.addEventListener("message", onMessage);
+      return () => {
+        window.removeEventListener("message", onMessage);
+      };
+    }, []);
+  }
+
+  // client/ChatMessage.tsx
   var import_jsx_runtime3 = __toESM(require_jsx_runtime());
   function CogIcon() {
     return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
@@ -40866,29 +40888,33 @@ WARNING: This link could potentially be dangerous`)) {
     onInput,
     onExit
   }) {
-    const terminalContainerRef = (0, import_react2.useRef)(null);
-    const termRef = (0, import_react2.useRef)(null);
-    const bufferLengthRef = (0, import_react2.useRef)(0);
-    (0, import_react2.useEffect)(() => {
+    const terminalContainerRef = (0, import_react3.useRef)(null);
+    const termRef = (0, import_react3.useRef)(null);
+    (0, import_react3.useEffect)(() => {
       if (terminalContainerRef.current) {
         const term = new import_xterm.Terminal({
           cols: 80,
-          rows: 10
+          rows: 10,
+          convertEol: true
         });
         termRef.current = term;
         term.open(terminalContainerRef.current);
         term.onData(onInput);
       }
     }, []);
-    (0, import_react2.useEffect)(() => {
-      if (action.output && termRef.current) {
-        const lines = action.output.split(/(\r?\n)/g);
-        for (let x = bufferLengthRef.current; x < lines.length; x++) {
-          termRef.current.write(lines[x] + "\r");
-        }
-        bufferLengthRef.current = lines.length - 1;
+    useChatPanelMessages((message) => {
+      if (message.type === "terminal_output" && action.id === message.id && termRef.current) {
+        termRef.current.write(message.data);
       }
-    }, [action.output]);
+    });
+    (0, import_react3.useEffect)(() => {
+      if (termRef.current) {
+        const term = termRef.current;
+        action.buffer.forEach((data) => {
+          term.write(data);
+        });
+      }
+    }, []);
     return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-wrapper", children: [
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-header", children: [
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CommandLineIcon, {}),
@@ -40925,10 +40951,10 @@ WARNING: This link could potentially be dangerous`)) {
                 action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CogIcon, {}) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CheckIcon, {})
               ] }) });
             }
-            case "delete_file": {
+            case "delete_file_or_directory": {
               return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "action-wrapper", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-header", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CodeIcon, {}),
-                "Deleting file " + action.path,
+                "Deleting " + action.path,
                 action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CogIcon, {}) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CheckIcon, {})
               ] }) });
             }
@@ -40985,29 +41011,18 @@ WARNING: This link could potentially be dangerous`)) {
 
   // client/ChatPanel.tsx
   var import_jsx_runtime4 = __toESM(require_jsx_runtime());
-  var vscode = acquireVsCodeApi();
-  function postMessage(message) {
-    vscode.postMessage(message);
-  }
   function ChatPanel() {
-    const [state, setState] = (0, import_react3.useState)();
-    (0, import_react3.useEffect)(() => {
-      const onMessage = (event) => {
-        const message = event.data;
-        switch (message.type) {
-          case "state_update":
-            setState(message.state);
-            break;
-        }
-      };
-      window.addEventListener("message", onMessage);
-      postMessage({
+    const [state, setState] = (0, import_react4.useState)();
+    (0, import_react4.useEffect)(() => {
+      postChatPanelMessage({
         type: "state_request"
       });
-      return () => {
-        window.removeEventListener("message", onMessage);
-      };
     }, []);
+    useChatPanelMessages((message) => {
+      if (message.type === "state_update") {
+        setState(message.state);
+      }
+    });
     if (!state) {
       return null;
     }
@@ -41016,9 +41031,6 @@ WARNING: This link could potentially be dangerous`)) {
     }
     if (state.status === "MISSING_CONFIG") {
       return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("h1", { children: "Missing config!" });
-    }
-    if (state.status === "LOADING_EMBEDDINGS") {
-      return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("h1", { children: "Loading embeddings!" });
     }
     if (state.status === "ERROR") {
       return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("h1", { children: [
@@ -41033,14 +41045,14 @@ WARNING: This link could potentially be dangerous`)) {
         {
           message,
           onTerminalInput: (actionId, input) => {
-            postMessage({
+            postChatPanelMessage({
               type: "terminal_input",
               actionId,
               input
             });
           },
           onTerminalExit: (actionId) => {
-            postMessage({
+            postChatPanelMessage({
               type: "terminal_kill",
               actionId
             });
@@ -41052,11 +41064,12 @@ WARNING: This link could potentially be dangerous`)) {
         NewChatMessage,
         {
           onSendMessage: (text5) => {
-            postMessage({
+            postChatPanelMessage({
               type: "assistant_request",
               text: text5
             });
-          }
+          },
+          embedderState: state.embedderState
         }
       )
     ] });
