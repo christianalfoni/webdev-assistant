@@ -57,7 +57,7 @@ export type ToolCallEvent = { id: string } & (
         path: string;
       }
     | {
-        type: "read_terminal_outputs";
+        type: "read_development_logs";
       }
   );
 
@@ -208,8 +208,8 @@ export class AssistantTools {
             output = await this.runTerminalCommand(id, args.command, args.args);
           } else if (isToolCall("search_file_paths")) {
             output = await this.searchFilePaths(id, args.path);
-          } else if (isToolCall("read_terminal_outputs")) {
-            output = await this.readTerminalOutputs(id);
+          } else if (isToolCall("read_development_logs")) {
+            output = await this.readDevelopmentLogs(id);
           } else {
             throw new Error("Not implemented " + toolCall.function.name);
           }
@@ -547,11 +547,11 @@ export class AssistantTools {
       throw error;
     }
   }
-  private readTerminalOutputs(id: string) {
+  private readDevelopmentLogs(id: string) {
     this.onToolCallEventEmitter.fire({
       id,
       status: "pending",
-      type: "read_terminal_outputs",
+      type: "read_development_logs",
     });
 
     try {
@@ -563,7 +563,7 @@ export class AssistantTools {
       this.onToolCallEventEmitter.fire({
         id,
         status: "resolved",
-        type: "read_terminal_outputs",
+        type: "read_development_logs",
       });
 
       return result;
@@ -572,7 +572,7 @@ export class AssistantTools {
         id,
         error: String(error),
         status: "rejected",
-        type: "read_terminal_outputs",
+        type: "read_development_logs",
       });
 
       throw error;
