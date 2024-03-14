@@ -40977,10 +40977,10 @@ WARNING: This link could potentially be dangerous`)) {
                 action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CogIcon, {}) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CheckIcon, {})
               ] }) });
             }
-            case "read_terminal_outputs": {
+            case "read_development_logs": {
               return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "action-wrapper", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "action-header", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CodeIcon, {}),
-                "Reading terminal outputs",
+                "Reading development logs",
                 action.status === "pending" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CogIcon, {}) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CheckIcon, {})
               ] }) });
             }

@@ -522,6 +522,7 @@ export class AssistantTools {
     try {
       const gitignoreGlobs = getGitIgnoreGlobs(this.workspacePath);
       const files = await glob("**/*.*", {
+        cwd: this.workspacePath,
         ignore: defaultIgnores.concat(gitignoreGlobs),
       });
 

@@ -238,12 +238,12 @@ export function ChatMessage({
                     </div>
                   );
                 }
-                case "read_terminal_outputs": {
+                case "read_development_logs": {
                   return (
                     <div className="action-wrapper">
                       <div className="action-header">
                         <CodeIcon />
-                        {"Reading terminal outputs"}
+                        {"Reading development logs"}
                         {action.status === "pending" ? (
                           <CogIcon />
                         ) : (
