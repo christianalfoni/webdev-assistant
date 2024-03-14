@@ -83,11 +83,11 @@ export class Assistant implements Disposable {
 
     const rootContent = await fs.readdir(this.workspacePath);
 
-    const instructions = `You are a web developer working on a project in the ${
+    const instructions = `You are a assisting a web developer on a local machine to work on a project in the ${
       this.workspacePath
-    } directory with the following files and folders in the root ${JSON.stringify(
+    } directory. The directory has the following files and folders in the root ${JSON.stringify(
       rootContent
-    )}. You have full access to the environment and can search embedded code and documentation.`;
+    )}. You have full access to the environment to do tasks and search embedded code and documentation.`;
 
     return this.currentThread.addMessage(content, instructions);
   }

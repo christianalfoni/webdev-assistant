@@ -449,6 +449,8 @@ export class AssistantTools {
     args: string[]
   ) {
     return new Promise<{ exitCode: number; output: string }>((resolve) => {
+      const fullCommand = command + " " + args.join(" ");
+
       const terminal = new Terminal({
         id,
         command,
@@ -464,7 +466,7 @@ export class AssistantTools {
               buffer: terminal.buffer,
               error: "Exited with code 1",
               type: "run_terminal_command",
-              command,
+              command: fullCommand,
             });
           } else {
             this.onToolCallEventEmitter.fire({
@@ -472,7 +474,7 @@ export class AssistantTools {
               status: "resolved",
               buffer: terminal.buffer,
               type: "run_terminal_command",
-              command,
+              command: fullCommand,
             });
           }
 
@@ -484,7 +486,7 @@ export class AssistantTools {
             status: "resolved",
             buffer: terminal.buffer,
             type: "run_terminal_command",
-            command,
+            command: fullCommand,
           });
           resolve({ exitCode: 1, output: terminal.buffer.join() });
         },
@@ -503,7 +505,7 @@ export class AssistantTools {
         buffer: terminal.buffer,
         status: "pending",
         type: "run_terminal_command",
-        command,
+        command: fullCommand,
       });
     });
   }
