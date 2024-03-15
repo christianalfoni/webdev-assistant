@@ -31,6 +31,7 @@ export class Terminal {
 
     const child = cp.spawn(command, args, {
       cwd: workspacePath,
+      detached: true,
     });
 
     this.child = child;
@@ -68,6 +69,26 @@ export class Terminal {
     this.child.stdin.destroy();
     this.child.stdout.destroy();
     this.child.stderr.destroy();
-    this.child.kill("SIGKILL");
+
+    if (!this.child.pid) {
+      throw new Error("There is not PID for the terminal");
+    }
+
+    if (process.platform == "win32") {
+      cp.exec(
+        `taskkill /PID ${this.child.pid} /T /F`,
+        (error, stdout, stderr) => {
+          console.log("taskkill stdout: " + stdout);
+          console.log("taskkill stderr: " + stderr);
+          if (error) {
+            console.log("error: " + error.message);
+          }
+        }
+      );
+    } else {
+      // see https://nodejs.org/api/child_process.html#child_process_options_detached
+      // If pid is less than -1, then sig is sent to every process in the process group whose ID is -pid.
+      process.kill(-this.child.pid, "SIGTERM");
+    }
   }
 }

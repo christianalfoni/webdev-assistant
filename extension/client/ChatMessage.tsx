@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import type { AssistantAction, ChatMessage } from "../src/types";
 // @ts-ignore
 import Markdown from "react-markdown";

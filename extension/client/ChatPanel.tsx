@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChatPanelClientState } from "../src/types";
 import { NewChatMessage } from "./NewChatMessage";
 import { ChatMessage } from "./ChatMessage";
@@ -6,6 +6,7 @@ import { postChatPanelMessage, useChatPanelMessages } from "./messaging";
 
 export function ChatPanel() {
   const [state, setState] = useState<ChatPanelClientState | undefined>();
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     postChatPanelMessage({
@@ -18,6 +19,12 @@ export function ChatPanel() {
       setState(message.state);
     }
   });
+
+  useEffect(() => {
+    if (state?.status === "READY" && chatMessagesRef.current) {
+      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+    }
+  }, [state]);
 
   if (!state) {
     return null;
@@ -37,7 +44,7 @@ export function ChatPanel() {
   }
 
   return (
-    <div className="chat-messages">
+    <div className="chat-messages" ref={chatMessagesRef}>
       <div className="chat-messages-pusher" />
       {state.messages.map((message, index) => (
         <ChatMessage

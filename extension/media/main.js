@@ -1097,7 +1097,7 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useReducer(reducer, initialArg, init);
           }
-          function useRef2(initialValue) {
+          function useRef3(initialValue) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useRef(initialValue);
           }
@@ -1109,7 +1109,7 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useInsertionEffect(create2, deps);
           }
-          function useLayoutEffect(create2, deps) {
+          function useLayoutEffect2(create2, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useLayoutEffect(create2, deps);
           }
@@ -1887,10 +1887,10 @@
           exports.useId = useId;
           exports.useImperativeHandle = useImperativeHandle;
           exports.useInsertionEffect = useInsertionEffect;
-          exports.useLayoutEffect = useLayoutEffect;
+          exports.useLayoutEffect = useLayoutEffect2;
           exports.useMemo = useMemo;
           exports.useReducer = useReducer;
-          exports.useRef = useRef2;
+          exports.useRef = useRef3;
           exports.useState = useState3;
           exports.useSyncExternalStore = useSyncExternalStore;
           exports.useTransition = useTransition;
@@ -41032,6 +41032,7 @@ WARNING: This link could potentially be dangerous`)) {
   var import_jsx_runtime4 = __toESM(require_jsx_runtime());
   function ChatPanel() {
     const [state, setState] = (0, import_react4.useState)();
+    const chatMessagesRef = (0, import_react4.useRef)(null);
     (0, import_react4.useEffect)(() => {
       postChatPanelMessage({
         type: "state_request"
@@ -41042,6 +41043,11 @@ WARNING: This link could potentially be dangerous`)) {
         setState(message.state);
       }
     });
+    (0, import_react4.useEffect)(() => {
+      if (state?.status === "READY" && chatMessagesRef.current) {
+        chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+      }
+    }, [state]);
     if (!state) {
       return null;
     }
@@ -41057,7 +41063,7 @@ WARNING: This link could potentially be dangerous`)) {
         state.error
       ] });
     }
-    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "chat-messages", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "chat-messages", ref: chatMessagesRef, children: [
       /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "chat-messages-pusher" }),
       state.messages.map((message, index2) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
         ChatMessage,
