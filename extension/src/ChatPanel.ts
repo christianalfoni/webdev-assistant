@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { Assistant } from "./Assistant";
+import { Assistant } from "./assistant/Assistant";
 import { Embedder, EmbedderState } from "./Embedder";
 import { getAssistantId, getOpenAiApiKey } from "./config";
 
@@ -10,7 +10,7 @@ import {
   ChatPanelState,
 } from "./types";
 import OpenAI from "openai";
-import { ToolCallEvent } from "./AssistantTools";
+import { ToolCallEvent } from "./assistant/types";
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
@@ -138,6 +138,7 @@ class ChatPanel {
           status: "READY",
           messages: [],
           embedderState: this.embedder.state,
+          isConnectedToRuntime: this.assistant.isRuntimeConnected,
         };
         break;
       }
@@ -235,6 +236,13 @@ class ChatPanel {
     this.updateClientReadyState((current) => ({
       ...current,
       embedderState: state,
+    }));
+  }
+
+  private handleRuntimeConnectedChanged(isConnected: boolean) {
+    this.updateClientReadyState((current) => ({
+      ...current,
+      isConnectedToRuntime: isConnected,
     }));
   }
 
@@ -390,6 +398,9 @@ class ChatPanel {
       this.handleTerminalOutput(terminalOutput);
     });
     embedder.onStateChange((state) => this.handleEmbedderStateChange(state));
+    assistant.onRuntimeConnectedChanged((isConnected) => {
+      this.handleRuntimeConnectedChanged(isConnected);
+    });
 
     return {
       status: "READY",
@@ -479,8 +490,14 @@ class ChatPanel {
   public dispose() {
     ChatPanel.currentPanel = undefined;
 
+    console.log("DISPOSE PANEL");
     // Clean up our resources
     this._panel.dispose();
+
+    if (this.state.status === "READY") {
+      this.state.assistant.dispose();
+      this.state.embedder.dispose();
+    }
 
     while (this._disposables.length) {
       const x = this._disposables.pop();

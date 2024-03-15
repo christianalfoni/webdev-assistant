@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { sleep } from "./utils.js";
+import { sleep } from "../utils.js";
 
 const POLL_RUN_SLEEP_MS = 500;
 

@@ -234,35 +234,37 @@ export class Embedder {
       cwd: this.workspacePath,
     });
 
-    await Promise.all(
-      files.map(async (filepath) => {
-        const extension = path.extname(filepath);
+    this.queue.add(() =>
+      Promise.all(
+        files.map(async (filepath) => {
+          const extension = path.extname(filepath);
 
-        if (
-          !codeExtensions.includes(extension) &&
-          !docExtensions.includes(extension)
-        ) {
-          return;
-        }
+          if (
+            !codeExtensions.includes(extension) &&
+            !docExtensions.includes(extension)
+          ) {
+            return;
+          }
 
-        const pageContent = (
-          await fs.readFile(path.join(this.workspacePath, filepath))
-        ).toString();
-        const vector = await this.getVector(pageContent);
+          const pageContent = (
+            await fs.readFile(path.join(this.workspacePath, filepath))
+          ).toString();
+          const vector = await this.getVector(pageContent);
 
-        const type = getIndexTypeFromFilepath(filepath);
+          const type = getIndexTypeFromFilepath(filepath);
 
-        console.log("Creating vector for " + filepath);
-        try {
-          await this.index.upsertItem({
-            id: filepath,
-            vector,
-            metadata: { filepath, type },
-          });
-        } catch (error) {
-          console.log("Failed creating vector for " + filepath, error);
-        }
-      })
+          console.log("Creating vector for " + filepath);
+          try {
+            await this.index.upsertItem({
+              id: filepath,
+              vector,
+              metadata: { filepath, type },
+            });
+          } catch (error) {
+            console.log("Failed creating vector for " + filepath, error);
+          }
+        })
+      )
     );
 
     this.state = "READY";

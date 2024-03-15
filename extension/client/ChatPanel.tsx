@@ -72,6 +72,7 @@ export function ChatPanel() {
           });
         }}
         embedderState={state.embedderState}
+        isConnectedToRuntime={state.isConnectedToRuntime}
       />
     </div>
   );

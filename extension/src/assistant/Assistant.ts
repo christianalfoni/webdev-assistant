@@ -1,10 +1,10 @@
 import OpenAI from "openai";
 import * as fs from "fs/promises";
-import { Disposable, Event, EventEmitter } from "vscode";
+import { Disposable, EventEmitter } from "vscode";
 import { AssistantThread } from "./AssistantThread";
-import { createMessageOutput } from "./utils";
-import { AssistantTools, ToolCallEvent } from "./AssistantTools";
-import { Embedder } from "./Embedder";
+import { createMessageOutput } from "../utils";
+import { AssistantTools } from "./AssistantTools";
+import { Embedder } from "../Embedder";
 
 type RunStatus = OpenAI.Beta.Threads.Run["status"];
 
@@ -20,6 +20,15 @@ export class Assistant implements Disposable {
   }
   get onTerminalOutput() {
     return this.tools.onTerminalOutput;
+  }
+  get onRuntimeMessage() {
+    return this.tools.runtimeServer.onMessage;
+  }
+  get onRuntimeConnectedChanged() {
+    return this.tools.runtimeServer.onConnectedChanged;
+  }
+  get isRuntimeConnected() {
+    return this.tools.runtimeServer.isConnected;
   }
 
   private currentThread?: AssistantThread;

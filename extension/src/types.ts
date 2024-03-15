@@ -1,6 +1,6 @@
-import { ToolCallEvent } from "./AssistantTools";
+import { ToolCallEvent } from "./assistant/types";
 import { Embedder, EmbedderState } from "./Embedder";
-import { Assistant } from "./Assistant";
+import { Assistant } from "./assistant/Assistant";
 
 export type ChatPanelState =
   | {
@@ -78,6 +78,7 @@ export type ChatPanelClientState =
       status: "READY";
       messages: ChatMessage[];
       embedderState: EmbedderState;
+      isConnectedToRuntime: boolean;
     }
   | {
       status: "ERROR";

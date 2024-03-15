@@ -4,9 +4,14 @@ import { EmbedderState } from "../src/Embedder";
 type Props = {
   onSendMessage: (text: string) => void;
   embedderState: EmbedderState;
+  isConnectedToRuntime: boolean;
 };
 
-export function NewChatMessage({ onSendMessage, embedderState }: Props) {
+export function NewChatMessage({
+  onSendMessage,
+  embedderState,
+  isConnectedToRuntime,
+}: Props) {
   const [text, setText] = useState("");
 
   return (
@@ -35,6 +40,9 @@ export function NewChatMessage({ onSendMessage, embedderState }: Props) {
           : embedderState === "UPDATING"
           ? "Updating embeddings..."
           : "Embeddings ready!"}
+      </div>
+      <div className="runtime-state">
+        {isConnectedToRuntime ? "Connected" : "Disconnected"}
       </div>
     </div>
   );

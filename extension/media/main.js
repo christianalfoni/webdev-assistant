@@ -31175,7 +31175,11 @@ WARNING: This link could potentially be dangerous`)) {
   // client/NewChatMessage.tsx
   var import_react = __toESM(require_react());
   var import_jsx_runtime = __toESM(require_jsx_runtime());
-  function NewChatMessage({ onSendMessage, embedderState }) {
+  function NewChatMessage({
+    onSendMessage,
+    embedderState,
+    isConnectedToRuntime
+  }) {
     const [text5, setText] = (0, import_react.useState)("");
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "chat-message-wrapper", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "chat-message-avatar", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
@@ -31200,7 +31204,8 @@ WARNING: This link could potentially be dangerous`)) {
           }
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "embedder-state", children: embedderState === "CREATING" ? "Creating embeddings..." : embedderState === "UPDATING" ? "Updating embeddings..." : "Embeddings ready!" })
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "embedder-state", children: embedderState === "CREATING" ? "Creating embeddings..." : embedderState === "UPDATING" ? "Updating embeddings..." : "Embeddings ready!" }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "runtime-state", children: isConnectedToRuntime ? "Connected" : "Disconnected" })
     ] });
   }
 
@@ -41089,7 +41094,8 @@ WARNING: This link could potentially be dangerous`)) {
               text: text5
             });
           },
-          embedderState: state.embedderState
+          embedderState: state.embedderState,
+          isConnectedToRuntime: state.isConnectedToRuntime
         }
       )
     ] });

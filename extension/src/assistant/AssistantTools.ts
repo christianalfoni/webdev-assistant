@@ -1,151 +1,100 @@
 import OpenAI from "openai";
-import { EventEmitter } from "vscode";
+import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as cp from "child_process";
 
-import { Embedder } from "./Embedder";
-import { defaultIgnores, getGitIgnoreGlobs, normalizePath } from "./utils";
+import { Embedder } from "../Embedder";
+import { defaultIgnores, getGitIgnoreGlobs, normalizePath } from "../utils";
 
 // @ts-ignore
 import parseGitignore from "gitignore-globs";
 import { glob } from "glob";
+import { Terminal } from "./Terminal";
+import { ToolCallEvent, ToolCallEventType } from "./types";
+import { WebSocketServer } from "ws";
 
-export type ToolCallEventType = ToolCallEvent["type"];
+type RuntimeError = { message: string; stack: string };
 
-export type ToolCallEvent = { id: string } & (
+type RuntimeMessage =
   | {
-      status: "pending" | "resolved";
+      type: "loaded";
     }
   | {
-      status: "rejected";
-      error: string;
-    }
-) &
-  (
-    | {
-        type: "search_code_embeddings";
-        query: string;
-      }
-    | {
-        type: "search_doc_embeddings";
-        query: string;
-      }
-    | {
-        type: "read_file";
-        path: string;
-      }
-    | {
-        type: "write_file";
-        path: string;
-        content: string;
-      }
-    | {
-        type: "read_directory";
-        path: string;
-      }
-    | {
-        type: "delete_file_or_directory";
-        path: string;
-      }
-    | {
-        type: "run_terminal_command";
-        command: string;
-        buffer: string[];
-      }
-    | {
-        type: "search_file_paths";
-        path: string;
-      }
-    | {
-        type: "read_development_logs";
-      }
-  );
+      type: "errors";
+      errors: RuntimeError[];
+    };
 
-class Terminal {
-  private child: cp.ChildProcessWithoutNullStreams;
-  private onDetach: () => void;
-
-  id: string;
-  buffer: string[] = [];
-  command: string;
-
-  constructor({
-    id,
-    workspacePath,
-    command,
-    args,
-    onOutput,
-    onClose,
-    onDetach,
-  }: {
-    id: string;
-    workspacePath: string;
-    command: string;
-    args: string[];
-    onOutput: (output: string) => void;
-    onClose: (exitCode: number | null) => void;
-    onDetach: () => void;
-  }) {
-    this.id = id;
-    this.command = command;
-    this.onDetach = onDetach;
-
-    const child = cp.spawn(command, args, {
-      cwd: workspacePath,
-    });
-
-    this.child = child;
-
-    child.stdout.addListener("data", (data) => {
-      const stringData = data.toString();
-
-      this.buffer.push(stringData);
-
-      onOutput(stringData);
-    });
-
-    child.stderr.addListener("data", (data) => {
-      const stringData = data.toString();
-
-      this.buffer.push(stringData);
-
-      onOutput(stringData);
-    });
-
-    child.addListener("close", () => console.log("CLOSED TERMINAL"));
-    child.addListener("disconnect", () => console.log("DISCONNECT TERMINAL"));
-    child.addListener("error", () => console.log("ERROR TERMINAL"));
-    child.addListener("message", () => console.log("MESSAGE TERMINAL"));
-
-    child.addListener("exit", onClose);
+class RuntimeServer {
+  private wss: WebSocketServer;
+  private onMessageEmitter = new vscode.EventEmitter<RuntimeMessage>();
+  onMessage = this.onMessageEmitter.event;
+  private onConnectedChangedEmitter = new vscode.EventEmitter<boolean>();
+  onConnectedChanged = this.onConnectedChangedEmitter.event;
+  private _isConnected = false;
+  get isConnected() {
+    return this._isConnected;
   }
-  sendInput(input: string) {
-    this.child.stdin.write(input);
+  set isConnected(value) {
+    this._isConnected = value;
+    this.onConnectedChangedEmitter.fire(value);
   }
-  detach() {
-    this.onDetach();
+
+  constructor() {
+    this.wss = new WebSocketServer({
+      port: 8999,
+    });
+    this.wss.on("connection", (ws) => {
+      this.isConnected = true;
+      ws.on("message", (data) => {
+        const message = JSON.parse(data.toString());
+        this.onMessageEmitter.fire(message);
+      });
+      ws.on("close", () => {
+        this.isConnected = false;
+      });
+    });
+    this.wss.on("listening", () => {
+      console.log("Listening on port ", 8999);
+    });
   }
   dispose() {
-    this.child.stdin.destroy();
-    this.child.stdout.destroy();
-    this.child.stderr.destroy();
-    this.child.kill("SIGKILL");
+    this.wss.close();
   }
 }
 
 export class AssistantTools {
-  private onToolCallEventEmitter = new EventEmitter<ToolCallEvent>();
+  private onToolCallEventEmitter = new vscode.EventEmitter<ToolCallEvent>();
   onToolCallEvent = this.onToolCallEventEmitter.event;
 
-  private onTerminalOutputEmitter = new EventEmitter<{
+  private onTerminalOutputEmitter = new vscode.EventEmitter<{
     id: string;
     data: string;
   }>();
   onTerminalOutput = this.onTerminalOutputEmitter.event;
 
   private terminals: Record<string, Terminal> = {};
+  runtimeServer = new RuntimeServer();
 
-  constructor(private workspacePath: string, private embedder: Embedder) {}
+  private runtimeErrors: RuntimeError[] = [];
+
+  constructor(private workspacePath: string, private embedder: Embedder) {
+    this.runtimeServer.onMessage((message) => {
+      switch (message.type) {
+        case "loaded": {
+          this.runtimeErrors = [];
+          break;
+        }
+        case "errors": {
+          this.runtimeErrors = this.runtimeErrors.concat(message.errors);
+          break;
+        }
+      }
+    });
+  }
+
+  get isRuntimeConnected() {
+    return this.runtimeServer.isConnected;
+  }
 
   handleTerminalInput(actionId: string, input: string) {
     if (!this.terminals[actionId]) {
@@ -548,7 +497,18 @@ export class AssistantTools {
       throw error;
     }
   }
-  private readDevelopmentLogs(id: string) {
+  private readDevelopmentLogs(id: string): Array<
+    | {
+        type: "process";
+        command: string;
+        output: string;
+      }
+    | {
+        type: "runtime";
+        message: string;
+        stack: string;
+      }
+  > {
     this.onToolCallEventEmitter.fire({
       id,
       status: "pending",
@@ -556,7 +516,8 @@ export class AssistantTools {
     });
 
     try {
-      const result = Object.values(this.terminals).map((terminal) => ({
+      const processLogs = Object.values(this.terminals).map((terminal) => ({
+        type: "process" as const,
         command: terminal.command,
         output: terminal.buffer.join(),
       }));
@@ -567,7 +528,17 @@ export class AssistantTools {
         type: "read_development_logs",
       });
 
-      return result;
+      const runtimeErrors = this.runtimeErrors.map(({ message, stack }) => ({
+        type: "runtime" as const,
+        message,
+        stack,
+      }));
+
+      this.runtimeErrors = [];
+
+      console.log("WTF", runtimeErrors);
+
+      return [...processLogs, ...runtimeErrors];
     } catch (error) {
       this.onToolCallEventEmitter.fire({
         id,
@@ -585,5 +556,6 @@ export class AssistantTools {
     Object.keys(this.terminals).forEach((actionId) => {
       this.handleKillTerminal(actionId);
     });
+    this.runtimeServer.dispose();
   }
 }

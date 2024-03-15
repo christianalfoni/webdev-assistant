@@ -106,6 +106,13 @@ body,
 .embedder-state {
   position: absolute;
   bottom: 10px;
+  right: 100px;
+  font-size: 11px;
+}
+
+.runtime-state {
+  position: absolute;
+  bottom: 10px;
   right: 20px;
   font-size: 11px;
 }

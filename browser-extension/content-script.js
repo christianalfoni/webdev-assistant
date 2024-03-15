@@ -1,6 +1,6 @@
 // Inform the background page that
 // this tab should have a page-action.
-chrome.runtime.sendMessage({
+/*chrome.runtime.sendMessage({
   from: "content",
   subject: "showPageAction",
 });
@@ -23,39 +23,67 @@ chrome.runtime.onMessage.addListener((msg, sender, response) => {
     response(domInfo);
   }
 });
+*/
 
 function main() {
   try {
     let errors = [];
-    const ws = new WebSocket("http://localhost:8999");
+    const ws = new WebSocket("ws://localhost:8999");
 
     function sendErrors() {
+      console.log("Sending errors", ws);
       if (!errors.length) {
         return;
       }
 
-      const payload = JSON.stringify(errors);
+      const payload = JSON.stringify({
+        type: "errors",
+        errors,
+      });
 
       errors = [];
 
-      ws.send(payload);
+      try {
+        ws.send(payload);
+      } catch {}
     }
 
-    ws.addEventListener("open", sendErrors);
+    ws.addEventListener("open", () => {
+      ws.send(
+        JSON.stringify({
+          type: "loaded",
+        })
+      );
+      sendErrors();
+    });
 
-    window.addEventListener("error", (error) => {
-      errors.push({
-        message: error.message,
-        stack: error.stack,
-      });
-    });
+    const originOnError = window.onerror;
+    window.onerror = (...args) => {
+      try {
+        errors.push({
+          message: args[4].message,
+          stack: args[4].stack,
+        });
+        sendErrors();
+      } catch {
+        // Invalid browser environment
+      }
+
+      originOnError && originOnError.apply(window, args);
+    };
+
     window.addEventListener("unhandledrejection", function (error) {
+      console.log("Async error", error.stack, error);
       errors.push({
         message: error.message,
         stack: error.stack,
       });
+      sendErrors();
     });
-  } catch {}
+    console.log("CONNECETED!!!");
+  } catch (error) {
+    console.log("ERROR!!!", error);
+  }
 }
 
 main();
