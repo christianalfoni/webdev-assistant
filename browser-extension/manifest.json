@@ -1,0 +1,19 @@
+{
+  "name": "MV3 Migration - content script example",
+  "version": "0.1",
+  "manifest_version": 3,
+  "permissions": ["scripting", "activeTab"],
+  "background": {
+    "persistent": false,
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*:*/*"],
+      "js": ["content-script.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
