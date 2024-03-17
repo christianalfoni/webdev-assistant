@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>WebDev Assistant</title>
+    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; font-src 'self' https://rsms.me; style-src 'self'
+      https://rsms.me"
+    />
+    <meta
+      http-equiv="X-Content-Security-Policy"
+      content="default-src 'self'; script-src 'self';"
+    />
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    <link rel="stylesheet" href="./dist/client/styles.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!-- You can also require other files to run in this process -->
+    <script src="./dist/client/renderer.js"></script>
+  </body>
+</html>

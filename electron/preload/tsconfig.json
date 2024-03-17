@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "outDir": "out",
+    "lib": ["ES2022", "DOM"],
+    "sourceMap": true,
+    "moduleResolution": "NodeNext",
+    "allowSyntheticDefaultImports": true,
+    "jsx": "preserve",
+    "strict": true
+  },
+  "include": ["**/*"]
+}

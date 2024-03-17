@@ -5,6 +5,25 @@ import Markdown from "react-markdown";
 import { Terminal } from "xterm";
 import { useChatPanelMessages } from "./messaging";
 
+function ErrorIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className="action-icon error"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+      />
+    </svg>
+  );
+}
+
 function CogIcon() {
   return (
     <svg
@@ -131,7 +150,13 @@ function TerminalCommand({
     <div className="action-wrapper">
       <div className="action-header">
         <CommandLineIcon /> {action.command}
-        {action.status === "pending" ? <CogIcon /> : <CheckIcon />}
+        {action.status === "pending" ? (
+          <CogIcon />
+        ) : action.status === "rejected" ? (
+          <ErrorIcon />
+        ) : (
+          <CheckIcon />
+        )}
       </div>
       <div ref={terminalContainerRef} />
       {action.status === "pending" ? (
@@ -186,6 +211,8 @@ export function ChatMessage({
                         {"Writing file " + action.path}
                         {action.status === "pending" ? (
                           <CogIcon />
+                        ) : action.status === "rejected" ? (
+                          <ErrorIcon />
                         ) : (
                           <CheckIcon />
                         )}
@@ -201,6 +228,8 @@ export function ChatMessage({
                         {"Deleting " + action.path}
                         {action.status === "pending" ? (
                           <CogIcon />
+                        ) : action.status === "rejected" ? (
+                          <ErrorIcon />
                         ) : (
                           <CheckIcon />
                         )}
@@ -216,6 +245,8 @@ export function ChatMessage({
                         {"Reading directory " + action.path}
                         {action.status === "pending" ? (
                           <CogIcon />
+                        ) : action.status === "rejected" ? (
+                          <ErrorIcon />
                         ) : (
                           <CheckIcon />
                         )}
@@ -231,6 +262,8 @@ export function ChatMessage({
                         {"Reading file " + action.path}
                         {action.status === "pending" ? (
                           <CogIcon />
+                        ) : action.status === "rejected" ? (
+                          <ErrorIcon />
                         ) : (
                           <CheckIcon />
                         )}
@@ -246,6 +279,8 @@ export function ChatMessage({
                         {"Reading development logs"}
                         {action.status === "pending" ? (
                           <CogIcon />
+                        ) : action.status === "rejected" ? (
+                          <ErrorIcon />
                         ) : (
                           <CheckIcon />
                         )}
@@ -271,6 +306,8 @@ export function ChatMessage({
                         {"Searching CODE embeddings for " + action.query}
                         {action.status === "pending" ? (
                           <CogIcon />
+                        ) : action.status === "rejected" ? (
+                          <ErrorIcon />
                         ) : (
                           <CheckIcon />
                         )}
@@ -286,6 +323,8 @@ export function ChatMessage({
                         {"Searching DOC embeddings for " + action.query}
                         {action.status === "pending" ? (
                           <CogIcon />
+                        ) : action.status === "rejected" ? (
+                          <ErrorIcon />
                         ) : (
                           <CheckIcon />
                         )}
@@ -301,6 +340,8 @@ export function ChatMessage({
                         {"Searching file paths for " + action.path}
                         {action.status === "pending" ? (
                           <CogIcon />
+                        ) : action.status === "rejected" ? (
+                          <ErrorIcon />
                         ) : (
                           <CheckIcon />
                         )}

@@ -1,0 +1,56 @@
+{
+  "name": "electron-quick-start-typescript",
+  "version": "1.0.0",
+  "description": "A minimal Electron application written with Typescript",
+  "scripts": {
+    "watch:client": "esbuild client/renderer.tsx --bundle --jsx=automatic --outfile=dist/client/renderer.js --watch",
+    "watch:css": "npx tailwindcss -i ./client/styles.css -o ./dist/client/styles.css --minify --watch",
+    "watch:preload": "esbuild preload/preload.ts --bundle --external:electron/renderer --outfile=dist/preload/preload.js --watch",
+    "watch:electron": "tsc -w",
+    "watch": "npm run build && concurrently -n css,client,preload,electron -c yellow,cyan,green,blue \"npm run watch:css\" \"npm run watch:client\" \"npm run watch:preload\" \"npm run watch:electron\"",
+    "build": "npm run build:electron && npm run build:client && npm run build:css && npm run build:preload",
+    "build:electron": "tsc",
+    "build:css": "npx tailwindcss -i ./client/styles.css -o ./dist/client/styles.css --minify",
+    "build:client": "esbuild client/renderer.tsx --bundle --jsx=automatic --outfile=dist/client/renderer.js",
+    "build:preload": "esbuild preload/preload.ts --bundle --external:electron/renderer --outfile=dist/preload/preload.js",
+    "lint": "eslint -c .eslintrc --ext .ts ./src",
+    "start": "electron ./dist/electron/main.js"
+  },
+  "repository": "https://github.com/electron/electron-quick-start-typescript",
+  "keywords": [
+    "Electron",
+    "quick",
+    "start",
+    "tutorial",
+    "demo",
+    "typescript"
+  ],
+  "author": "GitHub",
+  "license": "CC0-1.0",
+  "devDependencies": {
+    "@types/react": "^18.2.64",
+    "@types/react-dom": "^18.2.21",
+    "@typescript-eslint/eslint-plugin": "^7.2.0",
+    "@typescript-eslint/parser": "^7.2.0",
+    "concurrently": "^8.2.2",
+    "esbuild": "^0.20.1",
+    "eslint": "^8.57.0",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.4.2"
+  },
+  "dependencies": {
+    "@headlessui/react": "^2.0.0-alpha.4",
+    "@heroicons/react": "^2.1.1",
+    "clsx": "^2.1.0",
+    "electron": "^29.1.4",
+    "gitignore-globs": "^0.1.1",
+    "glob": "^10.3.10",
+    "minimatch": "^9.0.3",
+    "openai": "^4.28.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-markdown": "^9.0.1",
+    "vectra": "^0.5.5",
+    "xterm": "^5.3.0"
+  }
+}
