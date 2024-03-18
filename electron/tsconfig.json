@@ -3,8 +3,10 @@
     "module": "commonjs",
     "noImplicitAny": true,
     "sourceMap": true,
+    "rootDir": "electron",
     "outDir": "dist/electron",
     "baseUrl": ".",
+    "skipLibCheck": true,
     "paths": {
       "*": ["node_modules/*"]
     }
