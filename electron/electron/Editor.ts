@@ -83,7 +83,7 @@ export class Editor {
 
   private handleGetWorkspaceState() {
     this.disposer.addDisposable(
-      this.electronApi.handleGetEditorState(() => this.state)
+      this.electronApi.handleGetEditorState(() => this.clientState)
     );
   }
 

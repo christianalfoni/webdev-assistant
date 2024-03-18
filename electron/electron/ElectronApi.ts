@@ -85,7 +85,7 @@ export class ElectronApi {
   }
   sendEmbedderState(embedderState: EmbedderState) {
     this.browserWindow.webContents.send(
-      ApiMessage.MESSAGES_UPDATED,
+      ApiMessage.EMBEDDER_STATE_UPDATED,
       embedderState
     );
   }

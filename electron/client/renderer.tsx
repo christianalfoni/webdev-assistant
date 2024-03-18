@@ -1,6 +1,8 @@
 import { createRoot } from "react-dom/client";
 import { Button } from "./ui-components/button";
 import { useEditorStore } from "./editorStore";
+import { WorkspaceStoreProvider } from "./workspace/workspaceStore";
+import { Workspace } from "./workspace/Workspace";
 
 function App() {
   const editorStore = useEditorStore();
@@ -24,7 +26,7 @@ function App() {
       <div className="bg-white dark:bg-zinc-900 h-screen w-screen flex items-center justify-center">
         <Button
           onClick={() => {
-            editorStore.openWorkspace();
+            editorStore.api.openWorkspace();
           }}
         >
           Open Workspace
@@ -33,7 +35,11 @@ function App() {
     );
   }
 
-  return <h1>GOTZ WORKSPACE! {editorState.path}</h1>;
+  return (
+    <WorkspaceStoreProvider key={editorState.path}>
+      <Workspace />
+    </WorkspaceStoreProvider>
+  );
 }
 
 const root = createRoot(document.getElementById("root")!);

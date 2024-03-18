@@ -4,7 +4,7 @@ import { ChatMessage, EmbedderState } from "../electron/workspace/types";
 import { IpcRendererEvent } from "electron";
 import { ApiMessage } from "../electron/apiMessages";
 
-contextBridge.exposeInMainWorld("electronAPI", {
+const api = {
   openWorkspace() {
     ipcRenderer.send(ApiMessage.OPEN_WORKSPACE);
   },
@@ -73,4 +73,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.off(ApiMessage.EMBEDDER_STATE_UPDATED, listener);
     };
   },
-});
+};
+
+export type ElectronRendererApi = typeof api;
+
+contextBridge.exposeInMainWorld("electronAPI", api);

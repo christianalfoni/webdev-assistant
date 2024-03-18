@@ -45,7 +45,7 @@
     "electron": "^29.1.4",
     "gitignore-globs": "^0.1.1",
     "glob": "^10.3.10",
-    "impact-react": "^1.2.4",
+    "impact-react": "^1.2.5",
     "minimatch": "^9.0.3",
     "node-watch": "^0.7.4",
     "openai": "^4.29.1",

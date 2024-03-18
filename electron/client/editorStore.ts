@@ -1,5 +1,6 @@
-import { signal, useStore } from "impact-react";
-import type { ElectronRendererApi } from "../electron/ElectronApi";
+import { Signal, signal, useStore } from "impact-react";
+import type { ElectronRendererApi } from "../preload/preload";
+import { ChatMessage, EmbedderState } from "../electron/workspace/types";
 
 const electronAPI = (window as any).electronAPI as ElectronRendererApi;
 
@@ -14,8 +15,8 @@ function EditorStore() {
     get state() {
       return state.value;
     },
-    openWorkspace() {
-      electronAPI.openWorkspace();
+    get api() {
+      return electronAPI;
     },
   };
 }
