@@ -1,8 +1,17 @@
 import * as cp from "child_process";
+import { Emitter } from "../utils";
+import { pidToPorts } from "./pidToPort";
+
+import debounce = require("debounce");
 
 export class Terminal {
   private child: cp.ChildProcessWithoutNullStreams;
   private onDetach: () => void;
+  private _hasError = false;
+
+  get hasError() {
+    return this._hasError;
+  }
 
   id: string;
   buffer: string[] = [];
@@ -39,15 +48,23 @@ export class Terminal {
     child.stdout.addListener("data", (data) => {
       const stringData = data.toString();
 
+      this._hasError = false;
+
       this.buffer.push(stringData);
 
       onOutput(stringData);
+
+      console.log("Adding data", stringData);
     });
 
     child.stderr.addListener("data", (data) => {
       const stringData = data.toString();
 
+      this._hasError = true;
+
       this.buffer.push(stringData);
+
+      console.log("Adding error", stringData);
 
       onOutput(stringData);
     });
@@ -59,6 +76,7 @@ export class Terminal {
 
     child.addListener("exit", onClose);
   }
+
   sendInput(input: string) {
     this.child.stdin.write(input);
   }

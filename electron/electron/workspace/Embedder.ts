@@ -50,7 +50,7 @@ class EmbeddingQueue {
     this.state = "RUNNING";
 
     while (true) {
-      const nextItem = this.queue.shift();
+      const nextItem = this.queue[0];
 
       if (!nextItem) {
         this.state = "IDLE";
@@ -58,6 +58,8 @@ class EmbeddingQueue {
       }
 
       await nextItem();
+
+      this.queue.shift();
     }
   }
   add(item: QueueItem) {
@@ -140,7 +142,12 @@ export class Embedder {
         continue;
       }
 
-      if (minimatch(relativePath, ignoreGlob)) {
+      if (
+        minimatch(relativePath, ignoreGlob, {
+          // There can be dots in the path
+          dot: true,
+        })
+      ) {
         return undefined;
       }
     }
@@ -179,25 +186,29 @@ export class Embedder {
           return;
         }
 
-        const pageContent = (await fs.readFile(fsPath)).toString();
-        const vector = await this.getVector(pageContent);
-        const type = getIndexTypeFromFilepath(filepath);
+        try {
+          const pageContent = (await fs.readFile(fsPath)).toString();
+          const vector = await this.getVector(pageContent);
+          const type = getIndexTypeFromFilepath(filepath);
 
-        if (fsPath.startsWith(EMBEDDINGS_FOLDER_NAME)) {
-          this.queue.clear();
+          if (fsPath.startsWith(EMBEDDINGS_FOLDER_NAME)) {
+            this.queue.clear();
 
-          return this.queue.add(() => this.initialize());
+            return this.queue.add(() => this.initialize());
+          }
+
+          this.queue.add(() =>
+            event === "update"
+              ? this.index.upsertItem({
+                  id: filepath,
+                  vector,
+                  metadata: { filepath, type },
+                })
+              : this.index.deleteItem(filepath)
+          );
+        } catch (error) {
+          console.log("Could update update file in Embedder", filepath, error);
         }
-
-        this.queue.add(() =>
-          event === "update"
-            ? this.index.upsertItem({
-                id: filepath,
-                vector,
-                metadata: { filepath, type },
-              })
-            : this.index.deleteItem(filepath)
-        );
       }
     );
 
@@ -209,40 +220,52 @@ export class Embedder {
       cwd: this.workspacePath,
     });
 
-    this.queue.add(() =>
-      Promise.all(
-        files.map(async (filepath) => {
-          const extension = path.extname(filepath);
+    const filesToEmbed = files.filter(async (filepath) => {
+      const extension = path.extname(filepath);
 
-          if (
-            !codeExtensions.includes(extension) &&
-            !docExtensions.includes(extension)
-          ) {
-            return;
-          }
+      if (
+        !codeExtensions.includes(extension) &&
+        !docExtensions.includes(extension)
+      ) {
+        return false;
+      }
 
-          const pageContent = (
-            await fs.readFile(path.join(this.workspacePath, filepath))
-          ).toString();
-          const vector = await this.getVector(pageContent);
+      return true;
+    });
 
-          const type = getIndexTypeFromFilepath(filepath);
+    const evaluatedFiles = await Promise.all(
+      filesToEmbed.map(async (filepath) => {
+        const pageContent = (
+          await fs.readFile(path.join(this.workspacePath, filepath))
+        ).toString();
 
-          console.log("Creating vector for " + filepath);
-          try {
-            await this.index.upsertItem({
-              id: filepath,
-              vector,
-              metadata: { filepath, type },
-            });
-          } catch (error) {
-            console.log("Failed creating vector for " + filepath, error);
-          }
-        })
-      )
+        const type = getIndexTypeFromFilepath(filepath);
+
+        return {
+          filepath,
+          pageContent,
+          type,
+        };
+      })
     );
 
-    this.state = "READY";
+    evaluatedFiles.forEach(({ pageContent, filepath, type }) => {
+      this.queue.add(async () => {
+        try {
+          const vector = await this.getVector(pageContent);
+
+          await this.index.upsertItem({
+            id: filepath,
+            vector,
+            metadata: { filepath, type },
+          });
+
+          console.log("Generated emebdding for", filepath);
+        } catch (error) {
+          console.log("Could not embed ", filepath);
+        }
+      });
+    });
   }
   async searchCodeEmbeddings(query: string) {
     const vector = await this.getVector(query);

@@ -1,85 +1,101 @@
 import OpenAI from "openai";
-import { sleep } from "../utils.js";
-
-const POLL_RUN_SLEEP_MS = 500;
+import { Disposable, Emitter } from "../utils.js";
+// This is for some reason not available on the OpenAI namespaces
+import type { AssistantStream } from "openai/lib/AssistantStream.js";
 
 export type RunCallback = (run: OpenAI.Beta.Threads.Run) => void;
 
 export class AssistantThread {
-  static async create(
-    openai: OpenAI,
-    assistantId: string,
-    onUpdate: RunCallback
-  ) {
+  static async create(openai: OpenAI, assistantId: string) {
     const thread = await openai.beta.threads.create();
 
     return new AssistantThread({
       assistantId,
       thread,
-      onUpdate,
       openai,
     });
   }
   private openai: OpenAI;
   private assistantId: string;
   private thread: OpenAI.Beta.Thread;
-  private onUpdate: RunCallback;
-  private isPolling = false;
+
+  private onFunctionToolCallEmitter =
+    new Emitter<OpenAI.Beta.Threads.Runs.Steps.FunctionToolCall>();
+  onFunctionToolCall = this.onFunctionToolCallEmitter.event;
+
+  private onRequiresActionEmitter = new Emitter<{
+    runId: string;
+    toolCalls: OpenAI.Beta.Threads.Runs.RequiredActionFunctionToolCall[];
+  }>();
+  onRequiresAction = this.onRequiresActionEmitter.event;
+
+  private onMessageDeltaEmitter = new Emitter<string>();
+  onMessageDelta = this.onMessageDeltaEmitter.event;
+
+  private currentStream?: AssistantStream;
+
   constructor(params: {
     openai: OpenAI;
     assistantId: string;
     thread: OpenAI.Beta.Thread;
-    onUpdate: RunCallback;
   }) {
     this.openai = params.openai;
     this.assistantId = params.assistantId;
     this.thread = params.thread;
-    this.onUpdate = params.onUpdate;
   }
-  private async poll(run: OpenAI.Beta.Threads.Run) {
-    if (this.isPolling) {
-      return;
-    }
 
-    this.isPolling = true;
+  private observeStream(stream: AssistantStream) {
+    this.currentStream = stream;
 
-    while (true) {
-      const updatedRun = await this.openai.beta.threads.runs.retrieve(
-        this.thread.id,
-        run.id
-      );
+    stream
+      .on("end", () => {
+        const currentRun = stream.currentRun();
 
-      this.onUpdate(updatedRun);
+        if (
+          currentRun.status === "requires_action" &&
+          currentRun.required_action.type === "submit_tool_outputs"
+        ) {
+          const toolCalls =
+            currentRun.required_action.submit_tool_outputs.tool_calls;
 
-      if (
-        updatedRun.status === "in_progress" ||
-        updatedRun.status === "queued" ||
-        updatedRun.status === "cancelling"
-      ) {
-        sleep(POLL_RUN_SLEEP_MS);
-      } else {
-        this.isPolling = false;
-        break;
-      }
-    }
+          this.onRequiresActionEmitter.fire({
+            runId: currentRun.id,
+            toolCalls,
+          });
+        }
+      })
+      .on("textDelta", (text) => {
+        // The first delta is the created message value
+        if (text.value) {
+          this.onMessageDeltaEmitter.fire(text.value);
+        }
+      })
+      .on("toolCallCreated", (toolCall) => {
+        if (toolCall.type !== "function") {
+          throw new Error("Got a non function tool call: " + toolCall.type);
+        }
+
+        this.onFunctionToolCallEmitter.fire(toolCall);
+      });
+
+    return stream.finalMessages();
   }
+
   async addMessage(content: string, instructions: string) {
-    const messageResponse = await this.openai.beta.threads.messages.create(
+    await this.openai.beta.threads.messages.create(this.thread.id, {
+      role: "user",
+      content,
+    });
+
+    const stream = this.openai.beta.threads.runs.createAndStream(
       this.thread.id,
       {
-        role: "user",
-        content,
+        instructions,
+        assistant_id: this.assistantId,
       }
     );
 
-    const run = await this.openai.beta.threads.runs.create(this.thread.id, {
-      instructions,
-      assistant_id: this.assistantId,
-    });
-
-    this.poll(run);
-
-    return messageResponse;
+    return this.observeStream(stream);
   }
 
   get messages() {
@@ -89,22 +105,22 @@ export class AssistantThread {
   }
 
   async submitToolOutputs(
-    run: OpenAI.Beta.Threads.Run,
+    runId: string,
     toolOutputs: OpenAI.Beta.Threads.RunSubmitToolOutputsParams.ToolOutput[]
   ) {
-    const toolOutputsResponse =
-      await this.openai.beta.threads.runs.submitToolOutputs(
-        this.thread.id,
-        run.id,
-        {
-          tool_outputs: toolOutputs,
-        }
-      );
+    const stream = this.openai.beta.threads.runs.submitToolOutputsStream(
+      this.thread.id,
+      runId,
+      {
+        tool_outputs: toolOutputs,
+      }
+    );
 
-    this.poll(run);
-
-    return toolOutputsResponse;
+    return this.observeStream(stream);
   }
 
-  dispose() {}
+  dispose() {
+    this.onFunctionToolCallEmitter.dispose();
+    this.currentStream?.abort();
+  }
 }

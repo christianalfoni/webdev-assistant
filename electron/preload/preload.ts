@@ -42,10 +42,8 @@ const api = {
   onTerminalOutput(
     cb: (terminalOutput: { actionId: string; output: string }) => void
   ) {
-    const listener = (
-      _: IpcRendererEvent,
-      terminalOutput: { actionId: string; output: string }
-    ) => cb(terminalOutput);
+    const listener = (_: IpcRendererEvent, actionId: string, output: string) =>
+      cb({ actionId, output });
 
     ipcRenderer.on(ApiMessage.TERMINAL_OUTPUT, listener);
 

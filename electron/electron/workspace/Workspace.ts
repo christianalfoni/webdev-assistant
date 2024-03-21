@@ -39,10 +39,12 @@ export class Workspace {
     electronApi.handleGetMessages(() => this.messages);
     electronApi.handleGetEmbedderState(() => this.embedder.state);
 
-    this.assistant.onTerminalOutput(({ id, data }) =>
-      electronApi.sendTerminalOutput(id, data)
+    this.assistant.onTerminalOutput(({ id, data }) => {
+      electronApi.sendTerminalOutput(id, data);
+    });
+    this.assistant.onMessageDelta((message) =>
+      this.handleAssistantMessage(message)
     );
-    this.assistant.onMessage((message) => this.handleAssistantMessage(message));
     this.assistant.onToolCallEvent((toolCallEvent) =>
       this.handleAssistantToolCallEvent(toolCallEvent)
     );
@@ -71,7 +73,7 @@ export class Workspace {
       ...this.messages.slice(0, this.messages.length - 1),
       {
         ...lastAssistantMessage,
-        text: message,
+        text: lastAssistantMessage.text + message,
       },
     ];
   }

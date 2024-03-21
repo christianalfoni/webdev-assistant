@@ -89,5 +89,9 @@ export class Editor {
 
   dispose() {
     this.disposer.dispose();
+
+    if (this.state.status === "WORKSPACE") {
+      this.state.workspace.dispose();
+    }
   }
 }

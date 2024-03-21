@@ -7,6 +7,7 @@ import Markdown from "react-markdown";
 import { AssistantAction } from "../../../electron/workspace/types";
 import { CheckCircleIcon } from "@heroicons/react/16/solid";
 import { Terminal } from "xterm";
+import { Button } from "../../ui-components/button";
 
 function TerminalCommand({
   action,
@@ -62,6 +63,14 @@ function TerminalCommand({
         className="flex-auto rounded-md p-3 ring-1 ring-inset ring-gray-200 bg-black"
         ref={terminalContainerRef}
       />
+      {action.status === "pending" ? (
+        <div className="absolute bottom-12 right-8">
+          <Button onClick={onKeep}>Keep</Button>
+          <Button className="ml-2" onClick={onExit}>
+            Exit
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -230,7 +239,20 @@ function ChatMessage({
           </div>
         </div>
         <div className="prose text-sm leading-6 text-gray-500">
-          <Markdown>{message}</Markdown>
+          {message.length ? (
+            <Markdown>{message}</Markdown>
+          ) : (
+            <div className="flex-1 space-y-6 py-1">
+              <div className="h-2 bg-slate-700 rounded"></div>
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="h-2 bg-slate-700 rounded col-span-2"></div>
+                  <div className="h-2 bg-slate-700 rounded col-span-1"></div>
+                </div>
+                <div className="h-2 bg-slate-700 rounded"></div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>
@@ -247,7 +269,14 @@ function NewChatMessage({ onSubmit }: { onSubmit: (message: string) => void }) {
         alt=""
         className="h-6 w-6 flex-none rounded-full bg-gray-50"
       />
-      <form className="relative flex-auto" onSubmit={() => onSubmit(text)}>
+      <form
+        className="relative flex-auto"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit(text);
+          setText("");
+        }}
+      >
         <div className="overflow-hidden rounded-lg pb-12 shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-indigo-600">
           <label htmlFor="comment" className="sr-only">
             Add your comment
@@ -260,15 +289,22 @@ function NewChatMessage({ onSubmit }: { onSubmit: (message: string) => void }) {
             placeholder="Write message..."
             value={text}
             onChange={(event) => setText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.metaKey && event.key === "Enter") {
+                onSubmit(text);
+                setText("");
+              }
+            }}
           />
         </div>
         <div className="absolute inset-x-0 bottom-0 flex justify-between py-2 pl-3 pr-2">
-          <button
+          <Button
+            disabled={!text}
             type="submit"
             className="ml-auto rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
           >
             Send message
-          </button>
+          </Button>
         </div>
       </form>
     </div>
@@ -316,28 +352,3 @@ export function ChatPanel() {
     </div>
   );
 }
-
-/*
-<ChatMessage
-          key={index}
-          message={message}
-          onTerminalInput={(actionId: string, input: string) => {
-            api.inputTerminal(actionId, input);
-          }}
-          onTerminalExit={(actionId: string) => {
-            api.killTerminal(actionId);
-          }}
-          onKeepTerminal={(actionId: string) => {
-            api.keepTerminal(actionId);
-          }}
-        />
-        
-        
-              <NewChatMessage
-        onSendMessage={(text) => {
-          api.sendAssistantMessage(text);
-        }}
-        embedderState={embedderState}
-        isConnectedToRuntime={false}
-      />
-*/

@@ -355,12 +355,12 @@ export class AssistantTools {
         onClose: (exitCode) => {
           delete this.terminals[id];
 
-          if (exitCode === 1) {
+          if (exitCode === 1 || terminal.hasError) {
             this.onToolCallEventEmitter.fire({
               id,
               status: "rejected",
               buffer: terminal.buffer,
-              error: "Exited with code 1",
+              error: "Exited with code " + exitCode,
               type: "run_terminal_command",
               command: fullCommand,
             });

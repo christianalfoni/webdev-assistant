@@ -6,14 +6,9 @@ import { Emitter, createMessageOutput } from "../utils";
 import { AssistantTools } from "./AssistantTools";
 import { Embedder } from "../Embedder";
 
-type RunStatus = OpenAI.Beta.Threads.Run["status"];
-
 export class Assistant {
-  private onRunStatusUpdateEmitter = new Emitter<RunStatus>();
-  onRunStatusUpdate = this.onRunStatusUpdateEmitter.event;
-
-  private onMessageEmitter = new Emitter<string>();
-  onMessage = this.onMessageEmitter.event;
+  private onMessageDeltaEmitter = new Emitter<string>();
+  onMessageDelta = this.onMessageDeltaEmitter.event;
 
   get onToolCallEvent() {
     return this.tools.onToolCallEvent;
@@ -49,7 +44,8 @@ export class Assistant {
 
     const thread = await AssistantThread.create(
       this.openai,
-      this.assistantId,
+      this.assistantId
+      /*
       async (run) => {
         this.onRunStatusUpdateEmitter.fire(run.status);
 
@@ -71,8 +67,26 @@ export class Assistant {
 
           return;
         }
+        
       }
+      */
     );
+
+    thread.onFunctionToolCall(() => {
+      // We can show the action before the arguments are sent
+    });
+
+    thread.onMessageDelta((text) => {
+      this.onMessageDeltaEmitter.fire(text);
+    });
+
+    thread.onRequiresAction(async ({ runId, toolCalls }) => {
+      const toolOutputs = await this.tools.handleToolCalls(toolCalls);
+
+      thread.submitToolOutputs(runId, toolOutputs);
+
+      return;
+    });
 
     return thread;
   }
@@ -103,7 +117,6 @@ export class Assistant {
   dispose() {
     this.embedder.dispose();
     this.tools.dispose();
-    this.onMessageEmitter.dispose();
-    this.onRunStatusUpdateEmitter.dispose();
+    this.onMessageDeltaEmitter.dispose();
   }
 }

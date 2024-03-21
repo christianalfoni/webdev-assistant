@@ -51,7 +51,11 @@ app.whenReady().then(() => {
   });
 
   const electronApi = new ElectronApi(ipcMain, mainWindow);
-  Editor.create(electronApi, mainWindow);
+  const editor = Editor.create(electronApi, mainWindow);
+
+  app.on("quit", () => {
+    editor.dispose();
+  });
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
