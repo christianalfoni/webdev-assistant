@@ -72,6 +72,7 @@ export class Editor {
         );
 
         const workspacePath = filePaths[0];
+
         this.state = {
           status: "WORKSPACE",
           path: workspacePath,

@@ -500,7 +500,10 @@ export class AssistantTools {
 
   dispose() {
     this.onToolCallEventEmitter.dispose();
+    this.onTerminalOutputEmitter.dispose();
+
     Object.keys(this.terminals).forEach((actionId) => {
+      console.log("Killing terminal");
       this.handleKillTerminal(actionId);
     });
   }

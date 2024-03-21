@@ -9,7 +9,16 @@ import { ToolCallEvent } from "./assistant/types";
 export class Workspace {
   private assistant: Assistant;
   private embedder: Embedder;
+
   private _messages: ChatMessage[] = [];
+  get messages() {
+    return this._messages;
+  }
+  set messages(updatedMessages) {
+    this._messages = updatedMessages;
+    this.electronApi.sendMessages(updatedMessages);
+  }
+
   constructor(private path: string, private electronApi: ElectronApi) {
     const openai = new OpenAI({
       apiKey: getOpenAiApiKey(),
@@ -52,14 +61,12 @@ export class Workspace {
       electronApi.sendEmbedderState(embedderState)
     );
   }
-  get messages() {
-    return this._messages;
-  }
-  set messages(updatedMessages) {
-    this._messages = updatedMessages;
-    this.electronApi.sendMessages(updatedMessages);
-  }
   private handleAssistantMessage(message: string) {
+    if (!this.messages.length) {
+      this.messages = [{ actions: [], role: "assistant", text: message }];
+      return;
+    }
+
     const lastAssistantMessage = this.messages
       .filter((message) => message.role === "assistant")
       .pop();
@@ -78,6 +85,13 @@ export class Workspace {
     ];
   }
   private handleAssistantToolCallEvent(toolCallEvent: ToolCallEvent) {
+    if (!this.messages.length) {
+      this.messages = [
+        { actions: [toolCallEvent], role: "assistant", text: "" },
+      ];
+      return;
+    }
+
     const lastAssistantMessage = this.messages
       .filter((message) => message.role === "assistant")
       .pop();

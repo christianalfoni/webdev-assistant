@@ -282,6 +282,7 @@ export class Embedder {
     });
   }
   dispose() {
+    this.onStateChangeEmitter.dispose();
     this.watcher?.close();
     this.queue.dispose();
   }
