@@ -10,7 +10,13 @@ export class Workspace {
   private assistant: Assistant;
   private embedder: Embedder;
 
-  private _messages: ChatMessage[] = [];
+  private _messages: ChatMessage[] = [
+    {
+      role: "assistant",
+      text: "",
+      actions: [],
+    },
+  ];
   get messages() {
     return this._messages;
   }
@@ -60,6 +66,14 @@ export class Workspace {
     this.embedder.onStateChange((embedderState) =>
       electronApi.sendEmbedderState(embedderState)
     );
+
+    this.assistant.addMessage(
+      "Please help me start development of this project"
+    );
+
+    this.assistant.onPortOpened((port) => {
+      console.log("Opened port", port);
+    });
   }
   private handleAssistantMessage(message: string) {
     if (!this.messages.length) {

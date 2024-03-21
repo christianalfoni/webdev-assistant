@@ -56,6 +56,10 @@ app.whenReady().then(() => {
   app.on("quit", () => {
     editor.dispose();
   });
+
+  process.on("SIGINT", () => {
+    app.quit();
+  });
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common

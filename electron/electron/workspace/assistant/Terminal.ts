@@ -1,13 +1,15 @@
 import * as cp from "child_process";
-import { Emitter } from "../utils";
-import { pidToPorts } from "./pidToPort";
-
-import debounce = require("debounce");
 
 export class Terminal {
   private child: cp.ChildProcessWithoutNullStreams;
   private onDetach: () => void;
   private _hasError = false;
+
+  private _isDetached = false;
+
+  get isDetached() {
+    return this._isDetached;
+  }
 
   get hasError() {
     return this._hasError;
@@ -38,6 +40,8 @@ export class Terminal {
     this.command = command;
     this.onDetach = onDetach;
 
+    console.log("Running command", command, args);
+
     const child = cp.spawn(command, args, {
       cwd: workspacePath,
       detached: true,
@@ -53,8 +57,6 @@ export class Terminal {
       this.buffer.push(stringData);
 
       onOutput(stringData);
-
-      console.log("Adding data", stringData);
     });
 
     child.stderr.addListener("data", (data) => {
@@ -71,7 +73,15 @@ export class Terminal {
 
     child.addListener("close", () => console.log("CLOSED TERMINAL"));
     child.addListener("disconnect", () => console.log("DISCONNECT TERMINAL"));
-    child.addListener("error", () => console.log("ERROR TERMINAL"));
+    child.addListener("error", (error) => {
+      const stringData = String(error);
+
+      this._hasError = true;
+
+      this.buffer.push(stringData);
+
+      onOutput(stringData);
+    });
     child.addListener("message", () => console.log("MESSAGE TERMINAL"));
 
     child.addListener("exit", onClose);
@@ -81,6 +91,11 @@ export class Terminal {
     this.child.stdin.write(input);
   }
   detach() {
+    if (this._isDetached) {
+      return;
+    }
+
+    this._isDetached = true;
     this.onDetach();
   }
   dispose() {
@@ -89,7 +104,8 @@ export class Terminal {
     this.child.stderr.destroy();
 
     if (!this.child.pid) {
-      throw new Error("There is not PID for the terminal");
+      // It failed to even start
+      return;
     }
 
     if (process.platform == "win32") {

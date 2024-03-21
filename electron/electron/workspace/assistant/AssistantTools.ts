@@ -15,6 +15,7 @@ import parseGitignore from "gitignore-globs";
 import { glob } from "glob";
 import { Terminal } from "./Terminal";
 import { ToolCallEvent, ToolCallEventType } from "./types";
+import { PortDetector } from "./PortDetector";
 
 type RuntimeError = { message: string; stack: string };
 
@@ -28,6 +29,7 @@ type RuntimeMessage =
     };
 
 export class AssistantTools {
+  private portDetector = new PortDetector();
   private onToolCallEventEmitter = new Emitter<ToolCallEvent>();
   onToolCallEvent = this.onToolCallEventEmitter.event;
 
@@ -37,11 +39,23 @@ export class AssistantTools {
   }>();
   onTerminalOutput = this.onTerminalOutputEmitter.event;
 
+  private onPortOpenedEmitter = new Emitter<number>();
+  onPortOpened = this.onPortOpenedEmitter.event;
+
   private terminals: Record<string, Terminal> = {};
 
   private runtimeErrors: RuntimeError[] = [];
 
-  constructor(private workspacePath: string, private embedder: Embedder) {}
+  constructor(private workspacePath: string, private embedder: Embedder) {
+    this.portDetector.onPort((port) => {
+      for (const key in this.terminals) {
+        if (!this.terminals[key].isDetached) {
+          this.handleKeepTerminal(key);
+          this.onPortOpenedEmitter.fire(port);
+        }
+      }
+    });
+  }
 
   handleTerminalInput(actionId: string, input: string) {
     if (!this.terminals[actionId]) {
@@ -344,6 +358,8 @@ export class AssistantTools {
     command: string,
     args: string[]
   ) {
+    await this.portDetector.start();
+
     return new Promise<{ exitCode: number; output: string }>((resolve) => {
       const fullCommand = command + " " + args.join(" ");
 
@@ -374,6 +390,7 @@ export class AssistantTools {
             });
           }
 
+          this.portDetector.stop();
           resolve({ exitCode: exitCode || 0, output: terminal.buffer.join() });
         },
         onDetach: () => {
@@ -384,6 +401,7 @@ export class AssistantTools {
             type: "run_terminal_command",
             command: fullCommand,
           });
+          this.portDetector.stop();
           resolve({ exitCode: 1, output: terminal.buffer.join() });
         },
         onOutput: (data) => {
@@ -501,6 +519,7 @@ export class AssistantTools {
   dispose() {
     this.onToolCallEventEmitter.dispose();
     this.onTerminalOutputEmitter.dispose();
+    this.portDetector.dispose();
 
     Object.keys(this.terminals).forEach((actionId) => {
       console.log("Killing terminal");

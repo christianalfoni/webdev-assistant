@@ -1,7 +1,7 @@
 import { useChatStore } from "./chatStore";
 import { useEditorStore } from "../../editorStore";
 import { classNames } from "../../utils";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 // @ts-ignore
 import Markdown from "react-markdown";
 import { AssistantAction } from "../../../electron/workspace/types";
@@ -314,6 +314,10 @@ function NewChatMessage({ onSubmit }: { onSubmit: (message: string) => void }) {
 export function ChatPanel() {
   const { api } = useEditorStore();
   const { messages, embedderState } = useChatStore();
+
+  useLayoutEffect(() => {
+    window.scrollTo(0, document.body.scrollHeight);
+  }, [messages]);
 
   return (
     <div className="p-10">

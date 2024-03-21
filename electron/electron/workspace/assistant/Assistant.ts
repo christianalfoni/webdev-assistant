@@ -19,6 +19,9 @@ export class Assistant {
   get onTerminalOutput() {
     return this.tools.onTerminalOutput;
   }
+  get onPortOpened() {
+    return this.tools.onPortOpened;
+  }
 
   private currentThread?: AssistantThread;
   private assistantId: string;
@@ -40,15 +43,13 @@ export class Assistant {
     this.openai = params.openai;
     this.embedder = params.embedder;
     this.tools = new AssistantTools(this.workspacePath, this.embedder);
-    this.watcher = watch(path.join(this.workspacePath, "package.json"));
-    this.watcher.on("change", () => {
-      this.updatePackageJson();
+    this.watcher = watch(path.join(this.workspacePath));
+    this.watcher.on("change", (filepath) => {
+      if (filepath.endsWith("package.json")) {
+        this.updatePackageJson();
+      }
     });
     this.updatePackageJson();
-
-    if (this.packageJson?.scripts) {
-      this.addMessage("Please start the development scripts.");
-    }
   }
 
   private async updatePackageJson() {

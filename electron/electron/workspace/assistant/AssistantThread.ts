@@ -47,6 +47,9 @@ export class AssistantThread {
   private observeStream(stream: AssistantStream) {
     this.currentStream = stream;
 
+    let isCreatingUrl = false;
+    let buffer = "";
+
     stream
       .on("end", () => {
         const currentRun = stream.currentRun();
@@ -65,6 +68,35 @@ export class AssistantThread {
         }
       })
       .on("textDelta", (text) => {
+        if (!text.value) {
+          return;
+        }
+
+        if (text.value.includes("[")) {
+          buffer += text.value;
+          isCreatingUrl = true;
+          console.log("Creating URL");
+          return;
+        }
+
+        if (
+          isCreatingUrl &&
+          (text.value.includes(")") || text.value.includes(" "))
+        ) {
+          this.onMessageDeltaEmitter.fire(buffer + text.value);
+          buffer = "";
+          isCreatingUrl = false;
+          console.log("Not creating url anymore");
+
+          return;
+        }
+
+        if (isCreatingUrl) {
+          buffer += text.value;
+
+          return;
+        }
+
         // The first delta is the created message value
         if (text.value) {
           this.onMessageDeltaEmitter.fire(text.value);
